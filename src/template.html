@@ -1,0 +1,813 @@
+<!DOCTYPE html>
+<html lang="de">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<meta name="theme-color" content="#1f6f8b">
+<meta name="apple-mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-title" content="Kalender">
+<title>Familienkalender</title>
+<link rel="manifest" href="manifest.webmanifest">
+<link rel="icon" href="icon.svg" type="image/svg+xml">
+<link rel="apple-touch-icon" href="icon-192.png">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Bricolage+Grotesque:opsz,wght@12..96,600;12..96,700&family=Figtree:wght@400;500;600;700&display=swap" rel="stylesheet">
+<style>
+/*BASECSS*/
+/* Anmeldung & Start */
+.screen{min-height:100%;display:grid;place-items:center;padding:24px 16px}
+.card{background:var(--surface);border:1px solid var(--line);border-radius:16px;box-shadow:var(--shadow);width:100%;max-width:420px;padding:24px;display:flex;flex-direction:column;gap:14px}
+.card h2{font-family:var(--display);font-size:24px;margin:0;text-wrap:balance}
+.card p{margin:0;color:var(--muted)}
+.brand{display:flex;align-items:center;gap:8px;font-family:var(--display);font-weight:700;font-size:18px}
+.brand .dot{width:12px;height:12px;border-radius:3px;background:var(--sun)}
+.tabs{display:grid;grid-template-columns:1fr 1fr;border:1px solid var(--line);border-radius:8px;overflow:hidden}
+.tabs button{border:0;background:none;padding:8px;font-weight:600;color:var(--muted)}
+.tabs button[aria-pressed="true"]{background:var(--today);color:var(--ink)}
+.ok{color:var(--accent);font-size:13px;font-weight:600}
+.ok:empty{display:none}
+.linkbtn{border:0;background:none;color:var(--accent);font-weight:600;padding:0;text-align:left}
+.or{display:flex;align-items:center;gap:10px;color:var(--muted);font-size:13px}
+.or::before,.or::after{content:"";flex:1;height:1px;background:var(--line)}
+.invite-link{font-family:ui-monospace,Menlo,Consolas,monospace;font-size:12.5px;word-break:break-all;background:var(--surface);border:1px solid var(--line);border-radius:8px;padding:8px 10px}
+.code{font-family:ui-monospace,Menlo,Consolas,monospace;font-weight:700;letter-spacing:.08em}
+[hidden]{display:none!important}
+</style>
+</head>
+<body>
+
+<!-- Konfiguration fehlt -->
+<section class="screen" id="v-config" hidden>
+  <div class="card">
+    <div class="brand"><span class="dot"></span>Familienkalender</div>
+    <h2>Noch nicht verbunden</h2>
+    <p>Trage in <b>index.html</b> ganz oben die Supabase-Adresse und den Publishable Key ein (siehe Anleitung).</p>
+  </div>
+</section>
+
+<!-- Anmeldung -->
+<section class="screen" id="v-auth" hidden>
+  <form class="card" id="auth-form" novalidate>
+    <div class="brand"><span class="dot"></span>Familienkalender</div>
+    <h2 id="auth-h">Willkommen</h2>
+    <p id="auth-invite" hidden>Du wurdest in einen Familienkalender eingeladen. Melde dich an oder lege ein Konto an, dann bist du dabei.</p>
+    <div class="tabs" role="group" aria-label="Anmelden oder registrieren">
+      <button type="button" id="tab-login" aria-pressed="true">Anmelden</button>
+      <button type="button" id="tab-signup" aria-pressed="false">Konto anlegen</button>
+    </div>
+    <div class="field"><label for="auth-email">E-Mail</label><input id="auth-email" type="email" autocomplete="email" required></div>
+    <div class="field"><label for="auth-pass">Passwort</label><input id="auth-pass" type="password" autocomplete="current-password" minlength="8" required></div>
+    <p class="hint" id="auth-passhint" hidden style="margin:-6px 0 0">Mindestens 8 Zeichen.</p>
+    <p class="err" id="auth-err"></p>
+    <p class="ok" id="auth-ok"></p>
+    <button class="btn primary" type="submit" id="auth-submit" style="justify-content:center">Anmelden</button>
+    <button class="linkbtn" type="button" id="auth-forgot">Passwort vergessen?</button>
+  </form>
+</section>
+
+<!-- Neues Passwort -->
+<section class="screen" id="v-recover" hidden>
+  <form class="card" id="rec-form">
+    <h2>Neues Passwort</h2>
+    <div class="field"><label for="rec-pass">Neues Passwort</label><input id="rec-pass" type="password" autocomplete="new-password" minlength="8" required></div>
+    <p class="err" id="rec-err"></p>
+    <button class="btn primary" type="submit" style="justify-content:center">Speichern</button>
+  </form>
+</section>
+
+<!-- Familie anlegen oder beitreten -->
+<section class="screen" id="v-onb" hidden>
+  <div class="card">
+    <div class="brand"><span class="dot"></span>Familienkalender</div>
+    <h2>Fast geschafft</h2>
+    <p>Lege einen neuen Familienkalender an oder tritt mit einem Einladungscode bei.</p>
+    <form id="onb-create" style="display:flex;flex-direction:column;gap:10px">
+      <div class="field"><label for="onb-name">Name des Kalenders</label><input id="onb-name" maxlength="60" placeholder="z. B. Familie Holzhauer" required></div>
+      <button class="btn primary" type="submit" style="justify-content:center">Kalender anlegen</button>
+    </form>
+    <div class="or">oder</div>
+    <form id="onb-join" style="display:flex;flex-direction:column;gap:10px">
+      <div class="field"><label for="onb-code">Einladungscode</label><input id="onb-code" maxlength="64" autocapitalize="characters" placeholder="z. B. 3F9A1C0B7D2E" required></div>
+      <button class="btn" type="submit" style="justify-content:center">Beitreten</button>
+    </form>
+    <p class="err" id="onb-err"></p>
+    <button class="linkbtn" type="button" id="onb-logout">Abmelden</button>
+  </div>
+</section>
+
+<!-- Kalender -->
+<div class="app" id="v-cal" hidden>
+  <header>
+    <h1><span class="dot"></span><span id="famName">Familienkalender</span></h1>
+    <div class="spacer"></div>
+    <button class="btn" id="btn-family" type="button">Familie &amp; Einladen</button>
+    <button class="btn primary" id="btn-new" type="button">+ Termin</button>
+  </header>
+  <header>
+    <button class="btn icon" id="prev" type="button" aria-label="Vorheriger Monat">‹</button>
+    <button class="btn" id="todayBtn" type="button">Heute</button>
+    <button class="btn icon" id="next" type="button" aria-label="Nächster Monat">›</button>
+    <p class="month-title" id="monthTitle"></p>
+    <div class="spacer"></div>
+    <div class="seg" role="group" aria-label="Ansicht">
+      <button type="button" id="v-month" aria-pressed="true">Monat</button>
+      <button type="button" id="v-list" aria-pressed="false">Liste</button>
+    </div>
+  </header>
+  <div class="main">
+    <aside>
+      <div class="status" id="status"></div>
+      <section class="panel">
+        <h2>Familie <button type="button" id="btn-family2">Verwalten</button></h2>
+        <div class="people" id="people"></div>
+        <p class="hint" id="peopleHint"></p>
+      </section>
+      <section class="panel">
+        <h2>Nächste 7 Tage</h2>
+        <ul class="upcoming" id="upcoming"></ul>
+      </section>
+    </aside>
+    <section id="view"></section>
+  </div>
+</div>
+
+<!-- Termin bearbeiten -->
+<div class="backdrop" id="dlg-event" role="dialog" aria-modal="true" aria-labelledby="ev-h">
+  <form class="dialog" id="ev-form">
+    <h3 id="ev-h">Neuer Termin</h3>
+    <div class="field"><label for="ev-title">Was?</label><input id="ev-title" required maxlength="120" placeholder="z. B. Zahnarzt, Elternabend, Oma besuchen"></div>
+    <label class="check"><input type="checkbox" id="ev-allday"> Ganztägig</label>
+    <div class="row">
+      <div class="field"><label for="ev-date">Von (Datum)</label><input type="date" id="ev-date" required></div>
+      <div class="field"><label for="ev-enddate">Bis (Datum)</label><input type="date" id="ev-enddate"></div>
+    </div>
+    <div class="row" id="ev-times">
+      <div class="field"><label for="ev-start">Beginn</label><input type="time" id="ev-start" value="09:00"></div>
+      <div class="field"><label for="ev-end">Ende</label><input type="time" id="ev-end" value="10:00"></div>
+    </div>
+    <div class="field"><span class="lbl">Wer ist dabei?</span><div class="chips" id="ev-people"></div></div>
+    <div class="row">
+      <div class="field"><label for="ev-repeat">Wiederholen</label>
+        <select id="ev-repeat"><option value="none">Nie</option><option value="weekly">Jede Woche</option><option value="biweekly">Alle 2 Wochen</option><option value="monthly">Jeden Monat</option><option value="yearly">Jedes Jahr</option></select></div>
+      <div class="field"><label for="ev-until">Wiederholen bis</label><input type="date" id="ev-until"></div>
+    </div>
+    <div class="field"><label for="ev-loc">Wo?</label><input id="ev-loc" maxlength="160"></div>
+    <div class="field"><label for="ev-note">Notiz</label><textarea id="ev-note" maxlength="2000"></textarea></div>
+    <p class="err" id="ev-err"></p>
+    <div class="actions">
+      <button type="button" class="btn danger left" id="ev-del">Löschen</button>
+      <button type="button" class="btn" data-close>Abbrechen</button>
+      <button type="submit" class="btn primary" id="ev-save">Speichern</button>
+    </div>
+  </form>
+</div>
+
+<!-- Termin ansehen -->
+<div class="backdrop" id="dlg-detail" role="dialog" aria-modal="true" aria-labelledby="dt-h">
+  <div class="dialog">
+    <h3 id="dt-h"></h3>
+    <div class="detail-meta" id="dt-meta"></div>
+    <div class="actions">
+      <button type="button" class="btn" data-close>Schließen</button>
+      <button type="button" class="btn primary" id="dt-edit">Bearbeiten</button>
+    </div>
+  </div>
+</div>
+
+<!-- Tag -->
+<div class="backdrop" id="dlg-day" role="dialog" aria-modal="true" aria-labelledby="day-h">
+  <div class="dialog">
+    <h3 id="day-h"></h3>
+    <div id="day-list"></div>
+    <div class="actions">
+      <button type="button" class="btn" data-close>Schließen</button>
+      <button type="button" class="btn primary" id="day-add">+ Termin an diesem Tag</button>
+    </div>
+  </div>
+</div>
+
+<!-- Familie -->
+<div class="backdrop" id="dlg-family" role="dialog" aria-modal="true" aria-labelledby="fam-h">
+  <div class="dialog">
+    <h3 id="fam-h">Familie &amp; Einladen</h3>
+    <div class="box" style="display:flex;flex-direction:column;gap:10px">
+      <div class="lbl">Jemanden einladen</div>
+      <p class="hint" style="margin:0">Schick diesen Link per WhatsApp, SMS oder E-Mail. Wer ihn öffnet, legt ein Konto an und ist sofort in eurem Kalender.</p>
+      <div class="invite-link" id="inv-link"></div>
+      <p class="hint" style="margin:0">Einladungscode: <span class="code" id="inv-code"></span></p>
+      <div class="actions" style="justify-content:flex-start">
+        <button type="button" class="btn primary" id="inv-share">Link teilen</button>
+        <button type="button" class="btn" id="inv-copy">Link kopieren</button>
+        <button type="button" class="btn" id="inv-rotate" title="Der alte Link funktioniert danach nicht mehr">Neuen Code erzeugen</button>
+      </div>
+      <p class="ok" id="inv-msg"></p>
+    </div>
+    <div>
+      <div class="lbl" style="margin-bottom:4px">Personen im Kalender</div>
+      <div id="fam-list"></div>
+    </div>
+    <form id="fam-add" class="box" style="display:flex;flex-direction:column;gap:10px">
+      <div class="field"><label for="fam-name">Person hinzufügen</label><input id="fam-name" maxlength="40" placeholder="Name, z. B. Oma Helga" required></div>
+      <div class="colors" id="fam-colors"></div>
+      <div class="actions"><button class="btn primary" type="submit">Hinzufügen</button></div>
+      <p class="hint" style="margin:0">Auch Kinder ohne eigenes Konto kannst du so anlegen und Terminen zuordnen.</p>
+    </form>
+    <div class="box" id="fam-owner" style="display:flex;flex-direction:column;gap:10px">
+      <div class="field"><label for="fam-rename">Name des Kalenders</label><input id="fam-rename" maxlength="60"></div>
+      <div class="actions"><button class="btn" type="button" id="fam-rename-save">Umbenennen</button></div>
+    </div>
+    <div class="field" id="fam-switch-wrap" hidden><label for="fam-switch">Anderen Kalender öffnen</label><select id="fam-switch"></select></div>
+    <p class="err" id="fam-err"></p>
+    <div class="actions">
+      <span class="hint left" id="fam-me" style="margin:0;align-self:center"></span>
+      <button type="button" class="btn danger" id="fam-leave">Kalender verlassen</button>
+      <button type="button" class="btn" id="fam-logout">Abmelden</button>
+      <button type="button" class="btn primary" data-close>Fertig</button>
+    </div>
+  </div>
+</div>
+
+<!-- Wer bist du -->
+<div class="backdrop" id="dlg-who" role="dialog" aria-modal="true" aria-labelledby="who-h">
+  <form class="dialog" id="who-form">
+    <h3 id="who-h">Wer bist du?</h3>
+    <p class="hint" style="margin:0">Damit die Familie sieht, wer einen Termin eingetragen hat.</p>
+    <div id="who-claim"></div>
+    <div class="field"><label for="who-name">Neu anlegen</label><input id="who-name" maxlength="40" placeholder="Dein Name"></div>
+    <div class="colors" id="who-colors"></div>
+    <p class="err" id="who-err"></p>
+    <div class="actions">
+      <button type="button" class="btn" id="who-skip">Später</button>
+      <button type="submit" class="btn primary">Los geht's</button>
+    </div>
+  </form>
+</div>
+
+<script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2.45.4/dist/umd/supabase.min.js"></script>
+<script>
+/* ====== Konfiguration: hier die Werte aus Supabase eintragen ====== */
+const SUPABASE_URL = "/*URL*/";
+const SUPABASE_KEY = "/*KEY*/";
+/* ================================================================= */
+
+(function(){
+"use strict";
+const COLORS=["#1f6f8b","#d0573a","#3f8f4f","#8a56c2","#d39a1b","#c2477e","#4a6bd6","#6b7a3a","#2a9d8f","#9c6b3f"];
+const MONTHS=["Januar","Februar","März","April","Mai","Juni","Juli","August","September","Oktober","November","Dezember"];
+const DOW=["Mo","Di","Mi","Do","Fr","Sa","So"];
+const DOWL=["Sonntag","Montag","Dienstag","Mittwoch","Donnerstag","Freitag","Samstag"];
+const LS={get(k){try{return localStorage.getItem(k);}catch{return null;}},set(k,v){try{v==null?localStorage.removeItem(k):localStorage.setItem(k,v);}catch{}}};
+
+const S={sb:null,session:null,uid:null,families:[],family:null,role:null,people:{},events:{},channel:null,
+  cursor:firstOfMonth(new Date()),view:"month",hidden:new Set(),whoAsked:false,recovering:false};
+
+const $=id=>document.getElementById(id);
+function esc(s){return String(s??"").replace(/[&<>"']/g,c=>({"&":"&amp;","<":"&lt;",">":"&gt;",'"':"&quot;","'":"&#39;"}[c]));}
+function pad(n){return String(n).padStart(2,"0");}
+function ymd(d){return d.getFullYear()+"-"+pad(d.getMonth()+1)+"-"+pad(d.getDate());}
+function parse(s){if(!s||!/^\d{4}-\d{2}-\d{2}$/.test(s))return null;const[a,b,c]=s.split("-").map(Number);return new Date(a,b-1,c);}
+function addDays(d,n){const x=new Date(d);x.setDate(x.getDate()+n);return x;}
+function firstOfMonth(d){return new Date(d.getFullYear(),d.getMonth(),1);}
+function dayDiff(a,b){return Math.round((Date.UTC(b.getFullYear(),b.getMonth(),b.getDate())-Date.UTC(a.getFullYear(),a.getMonth(),a.getDate()))/864e5);}
+function sameDay(a,b){return a.getFullYear()===b.getFullYear()&&a.getMonth()===b.getMonth()&&a.getDate()===b.getDate();}
+function fmtLong(d){return DOWL[d.getDay()]+", "+d.getDate()+". "+MONTHS[d.getMonth()]+" "+d.getFullYear();}
+function fmtShort(d){return pad(d.getDate())+"."+pad(d.getMonth()+1)+".";}
+function setStatus(t){$("status").textContent=t||"";}
+function show(view){["v-config","v-auth","v-recover","v-onb","v-cal"].forEach(v=>$(v).hidden=v!==view);}
+
+/* ---------- Termine & Wiederholungen ---------- */
+function nthStart(start,rep,i){
+  if(rep==="weekly")return addDays(start,7*i);
+  if(rep==="biweekly")return addDays(start,14*i);
+  if(rep==="monthly"){const d=new Date(start.getFullYear(),start.getMonth()+i,start.getDate());return d.getDate()===start.getDate()?d:null;}
+  if(rep==="yearly"){const d=new Date(start.getFullYear()+i,start.getMonth(),start.getDate());return d.getDate()===start.getDate()?d:null;}
+  return i===0?start:null;
+}
+function occurrences(ev,from,to){
+  const start=parse(ev.date);if(!start)return[];
+  let end=parse(ev.endDate)||start;if(end<start)end=start;
+  const dur=dayDiff(start,end);const rep=ev.repeat||"none";const until=parse(ev.repeatUntil);
+  const out=[];
+  if(rep==="none"){if(end>=from&&start<=to)out.push({start,end});return out;}
+  let i=0;
+  if(rep==="weekly"||rep==="biweekly"){const step=rep==="weekly"?7:14;const gap=dayDiff(start,from)-dur;if(gap>0)i=Math.floor(gap/step);}
+  if(rep==="monthly"){const gap=(from.getFullYear()-start.getFullYear())*12+from.getMonth()-start.getMonth()-2;if(gap>0)i=gap;}
+  if(rep==="yearly"){const gap=from.getFullYear()-start.getFullYear()-1;if(gap>0)i=gap;}
+  for(let k=0;k<800;k++,i++){
+    const s=nthStart(start,rep,i);
+    if(s===null)continue;
+    if(s>to)break;
+    if(until&&s>until)break;
+    const e=addDays(s,dur);
+    if(e>=from)out.push({start:s,end:e});
+  }
+  return out;
+}
+function visible(ev){
+  const ids=(ev.people||[]).filter(id=>S.people[id]);
+  if(!ids.length)return !S.hidden.has("_all");
+  return ids.some(id=>!S.hidden.has(id));
+}
+function evColor(ev){const id=(ev.people||[]).find(i=>S.people[i]);return id?(S.people[id].color||COLORS[0]):"#7d8b95";}
+function whoText(ev){const n=(ev.people||[]).filter(i=>S.people[i]).map(i=>S.people[i].name);return n.length?n.join(", "):"Ganze Familie";}
+function timeText(ev,occ,day){
+  if(ev.allDay)return "Ganztägig";
+  const multi=!sameDay(occ.start,occ.end);
+  if(multi&&day){
+    if(sameDay(day,occ.start))return "ab "+(ev.start||"");
+    if(sameDay(day,occ.end))return "bis "+(ev.end||"");
+    return "Ganztägig";
+  }
+  return (ev.start||"")+(ev.end?"–"+ev.end:"");
+}
+function buildDays(from,to){
+  const map={};
+  for(const [id,ev] of Object.entries(S.events)){
+    if(!visible(ev))continue;
+    for(const occ of occurrences(ev,from,to)){
+      let d=occ.start<from?new Date(from):new Date(occ.start);
+      while(d<=occ.end&&d<=to){(map[ymd(d)]??=[]).push({id,ev,occ});d=addDays(d,1);}
+    }
+  }
+  for(const k in map)map[k].sort((a,b)=>{
+    const aa=a.ev.allDay||!sameDay(a.occ.start,a.occ.end)?0:1, bb=b.ev.allDay||!sameDay(b.occ.start,b.occ.end)?0:1;
+    if(aa!==bb)return aa-bb;return String(a.ev.start||"").localeCompare(String(b.ev.start||""));
+  });
+  return map;
+}
+function rowToEv(r){
+  return {title:r.title,date:r.date,endDate:r.end_date||r.date,allDay:!!r.all_day,
+    start:r.start_time?String(r.start_time).slice(0,5):"",end:r.end_time?String(r.end_time).slice(0,5):"",
+    people:Array.isArray(r.people)?r.people:[],repeat:r.repeat||"none",repeatUntil:r.repeat_until||"",
+    location:r.location||"",note:r.note||"",createdBy:r.created_by};
+}
+
+/* ---------- Rendern ---------- */
+function render(){
+  if(!S.family)return;
+  $("famName").textContent=S.family.name||"Familienkalender";
+  document.title=(S.family.name||"Familienkalender");
+  $("monthTitle").textContent=MONTHS[S.cursor.getMonth()]+" "+S.cursor.getFullYear();
+  $("v-month").setAttribute("aria-pressed",S.view==="month");
+  $("v-list").setAttribute("aria-pressed",S.view==="list");
+  renderPeople();renderUpcoming();
+  if(S.view==="month")renderMonth();else renderList();
+}
+function personList(){return Object.entries(S.people).sort((a,b)=>String(a[1].name).localeCompare(String(b[1].name),"de"));}
+function myPerson(){return Object.entries(S.people).find(([,p])=>p.user_id&&p.user_id===S.uid);}
+function renderPeople(){
+  const el=$("people");el.innerHTML="";
+  const list=personList();
+  for(const [id,p] of list){
+    const b=document.createElement("button");b.type="button";b.className="person"+(S.hidden.has(id)?" off":"");
+    b.style.setProperty("--c",p.color||COLORS[0]);
+    b.innerHTML='<span class="sw" style="background:'+esc(p.color||COLORS[0])+'"></span><span>'+esc(p.name)+'</span>'+(p.user_id===S.uid?'<span class="you">du</span>':"");
+    b.onclick=()=>{S.hidden.has(id)?S.hidden.delete(id):S.hidden.add(id);render();};
+    el.appendChild(b);
+  }
+  const all=document.createElement("button");all.type="button";all.className="person"+(S.hidden.has("_all")?" off":"");
+  all.style.setProperty("--c","#7d8b95");
+  all.innerHTML='<span class="sw" style="background:#7d8b95"></span><span>Ganze Familie</span>';
+  all.onclick=()=>{S.hidden.has("_all")?S.hidden.delete("_all"):S.hidden.add("_all");render();};
+  el.appendChild(all);
+  $("peopleHint").textContent=list.length?"Tippe auf einen Namen, um dessen Termine ein- oder auszublenden.":"Noch niemand angelegt. Unter „Verwalten“ fügst du die Familie hinzu.";
+}
+function renderUpcoming(){
+  const ul=$("upcoming");ul.innerHTML="";
+  const t=new Date();t.setHours(0,0,0,0);const to=addDays(t,6);
+  const days=buildDays(t,to);let n=0;
+  outer:for(let d=new Date(t);d<=to;d=addDays(d,1)){
+    for(const it of (days[ymd(d)]||[])){
+      if(!sameDay(d,it.occ.start)&&!sameDay(d,t))continue;
+      if(++n>8)break outer;
+      const li=document.createElement("li");
+      li.innerHTML='<span class="d">'+(sameDay(d,t)?"Heute":DOW[(d.getDay()+6)%7]+"<br>"+fmtShort(d))+'</span><span class="t" style="--c:'+esc(evColor(it.ev))+'">'+esc(it.ev.title)+'<small>'+esc(timeText(it.ev,it.occ,d))+' · '+esc(whoText(it.ev))+'</small></span>';
+      const dd=new Date(d);li.onclick=()=>openDetail(it.id,dd);
+      ul.appendChild(li);
+    }
+  }
+  if(!n)ul.innerHTML='<li style="display:block;color:var(--muted)">Keine Termine in den nächsten 7 Tagen.</li>';
+}
+function renderMonth(){
+  const v=$("view");
+  const first=S.cursor;const startOff=(first.getDay()+6)%7;
+  const gridStart=addDays(first,-startOff);const gridEnd=addDays(gridStart,41);
+  const days=buildDays(gridStart,gridEnd);const today=new Date();
+  let html='<div class="cal"><div class="dow">'+DOW.map(d=>"<div>"+d+"</div>").join("")+'</div><div class="grid">';
+  for(let i=0;i<42;i++){
+    const d=addDays(gridStart,i);const key=ymd(d);const items=days[key]||[];
+    const cls=["cell"];if(d.getMonth()!==first.getMonth())cls.push("other");if(sameDay(d,today))cls.push("today");if(i%7>4)cls.push("weekend");
+    html+='<div class="'+cls.join(" ")+'" role="button" tabindex="0" data-day="'+key+'" aria-label="'+esc(fmtLong(d))+', '+items.length+' Termine"><span class="num">'+d.getDate()+'</span>';
+    items.slice(0,3).forEach(it=>{
+      const allday=it.ev.allDay||!sameDay(it.occ.start,it.occ.end);
+      const tt=allday?"":'<b>'+esc(it.ev.start||"")+'</b>';
+      html+='<button type="button" class="pill'+(allday?" allday":"")+'" style="--c:'+esc(evColor(it.ev))+'" data-ev="'+esc(it.id)+'" data-d="'+key+'" title="'+esc(it.ev.title)+'">'+tt+esc(it.ev.title)+'</button>';
+    });
+    if(items.length>3)html+='<span class="more">+'+(items.length-3)+' weitere</span>';
+    html+='</div>';
+  }
+  v.innerHTML=html+'</div></div>';
+  v.querySelectorAll(".pill").forEach(b=>b.addEventListener("click",e=>{e.stopPropagation();openDetail(b.dataset.ev,parse(b.dataset.d));}));
+  v.querySelectorAll(".cell").forEach(c=>{
+    c.addEventListener("click",()=>openDay(parse(c.dataset.day)));
+    c.addEventListener("keydown",e=>{if(e.key==="Enter"||e.key===" "){e.preventDefault();openDay(parse(c.dataset.day));}});
+  });
+}
+function evRow(it,d){
+  return '<div class="ev" style="--c:'+esc(evColor(it.ev))+'" data-ev="'+esc(it.id)+'" data-d="'+ymd(d)+'" role="button" tabindex="0"><span class="time">'+esc(timeText(it.ev,it.occ,d))+'</span><span><b>'+esc(it.ev.title)+'</b><br><span class="who">'+esc(whoText(it.ev))+(it.ev.location?' · '+esc(it.ev.location):"")+'</span></span></div>';
+}
+function bindEvRows(root){
+  root.querySelectorAll(".ev").forEach(r=>{
+    const go=()=>openDetail(r.dataset.ev,parse(r.dataset.d));
+    r.addEventListener("click",go);r.addEventListener("keydown",e=>{if(e.key==="Enter"){e.preventDefault();go();}});
+  });
+}
+function renderList(){
+  const v=$("view");const from=S.cursor;const to=new Date(from.getFullYear(),from.getMonth()+1,0);
+  const days=buildDays(from,to);const today=new Date();
+  let html='<div class="agenda">';let any=false;
+  for(let d=new Date(from);d<=to;d=addDays(d,1)){
+    const items=days[ymd(d)];if(!items)continue;any=true;
+    html+='<div class="day'+(sameDay(d,today)?" today":"")+'"><div class="dl">'+d.getDate()+'. '+MONTHS[d.getMonth()].slice(0,3)+'<small>'+DOWL[d.getDay()]+'</small></div><div>'+items.map(it=>evRow(it,d)).join("")+'</div></div>';
+  }
+  if(!any)html+='<p class="empty">Keine Termine im '+MONTHS[from.getMonth()]+'.</p>';
+  v.innerHTML=html+'</div>';bindEvRows(v);
+}
+
+/* ---------- Dialoge ---------- */
+function open(id){$(id).classList.add("open");}
+function close(id){$(id).classList.remove("open");}
+document.querySelectorAll(".backdrop").forEach(b=>{
+  b.addEventListener("click",e=>{if(e.target===b)close(b.id);});
+  b.querySelectorAll("[data-close]").forEach(x=>x.addEventListener("click",()=>close(b.id)));
+});
+document.addEventListener("keydown",e=>{if(e.key==="Escape")document.querySelectorAll(".backdrop.open").forEach(b=>close(b.id));});
+
+function openDay(d){
+  S.dayOpen=d;$("day-h").textContent=fmtLong(d);
+  const items=buildDays(d,d)[ymd(d)]||[];
+  $("day-list").innerHTML=items.length?items.map(it=>evRow(it,d)).join(""):'<p class="empty" style="padding:8px 0">Noch nichts geplant.</p>';
+  bindEvRows($("day-list"));open("dlg-day");
+}
+$("day-add").onclick=()=>{close("dlg-day");openEditor(null,S.dayOpen);};
+
+function openDetail(id,d){
+  const ev=S.events[id];if(!ev)return;
+  close("dlg-day");S.detailId=id;
+  $("dt-h").textContent=ev.title;
+  const occ=occurrences(ev,d,d)[0]||{start:parse(ev.date),end:parse(ev.endDate)||parse(ev.date)};
+  const rep={weekly:"jede Woche",biweekly:"alle 2 Wochen",monthly:"jeden Monat",yearly:"jedes Jahr"}[ev.repeat];
+  const rows=[
+    ["Wann",fmtLong(occ.start)+(sameDay(occ.start,occ.end)?"":" bis "+fmtLong(occ.end))],
+    ["Uhrzeit",ev.allDay?"Ganztägig":(ev.start||"")+(ev.end?" – "+ev.end:"")+" Uhr"],
+    ["Wer",whoText(ev)]
+  ];
+  if(rep){const u=parse(ev.repeatUntil);rows.push(["Wiederholt",rep+(u?" bis "+fmtShort(u)+u.getFullYear():"")]);}
+  if(ev.location)rows.push(["Wo",ev.location]);
+  if(ev.note)rows.push(["Notiz",ev.note]);
+  const by=Object.values(S.people).find(p=>p.user_id&&p.user_id===ev.createdBy);
+  if(by)rows.push(["Eingetragen",by.name]);
+  $("dt-meta").innerHTML=rows.map(r=>'<div><span>'+esc(r[0])+'</span><span style="white-space:pre-wrap">'+esc(r[1])+'</span></div>').join("");
+  open("dlg-detail");
+}
+$("dt-edit").onclick=()=>{close("dlg-detail");openEditor(S.detailId);};
+
+let evPeopleSel=new Set();
+function renderEvPeople(){
+  const box=$("ev-people");box.innerHTML="";
+  const list=personList();
+  if(!list.length){box.innerHTML='<span class="hint" style="margin:0">Lege unter „Familie & Einladen“ Personen an, um Termine zuzuordnen.</span>';return;}
+  for(const [id,p] of list){
+    const b=document.createElement("button");b.type="button";b.className="chip";b.style.setProperty("--c",p.color||COLORS[0]);
+    b.textContent=p.name;b.setAttribute("aria-pressed",evPeopleSel.has(id));
+    b.onclick=()=>{evPeopleSel.has(id)?evPeopleSel.delete(id):evPeopleSel.add(id);b.setAttribute("aria-pressed",evPeopleSel.has(id));};
+    box.appendChild(b);
+  }
+}
+function syncAllDay(){$("ev-times").style.display=$("ev-allday").checked?"none":"";}
+$("ev-allday").onchange=syncAllDay;
+$("ev-repeat").onchange=()=>{$("ev-until").disabled=$("ev-repeat").value==="none";};
+$("ev-date").onchange=()=>{const a=$("ev-date").value,b=$("ev-enddate").value;if(!b||b<a)$("ev-enddate").value=a;};
+$("ev-start").onchange=()=>{const s=$("ev-start").value;if(!s)return;const[h,m]=s.split(":").map(Number);const e=$("ev-end").value;if(!e||e<=s)$("ev-end").value=pad(Math.min(23,h+1))+":"+pad(m);};
+
+function openEditor(id,day){
+  S.editing=id;const ev=id?S.events[id]:null;$("ev-err").textContent="";
+  $("ev-h").textContent=ev?"Termin bearbeiten":"Neuer Termin";
+  const d=day?ymd(day):ymd(new Date());
+  $("ev-title").value=ev?ev.title:"";
+  $("ev-allday").checked=ev?ev.allDay:false;
+  $("ev-date").value=ev?ev.date:d;
+  $("ev-enddate").value=ev?(ev.endDate||ev.date):d;
+  $("ev-start").value=ev&&ev.start?ev.start:"09:00";
+  $("ev-end").value=ev&&ev.end?ev.end:"10:00";
+  $("ev-repeat").value=ev?ev.repeat:"none";
+  $("ev-until").value=ev?ev.repeatUntil:"";
+  $("ev-until").disabled=$("ev-repeat").value==="none";
+  $("ev-loc").value=ev?ev.location:"";
+  $("ev-note").value=ev?ev.note:"";
+  const mine=myPerson();
+  evPeopleSel=new Set(ev?ev.people.filter(i=>S.people[i]):(mine?[mine[0]]:[]));
+  renderEvPeople();syncAllDay();
+  $("ev-del").style.display=ev?"":"none";
+  open("dlg-event");setTimeout(()=>$("ev-title").focus(),30);
+}
+$("btn-new").onclick=()=>openEditor(null,sameDay(S.cursor,firstOfMonth(new Date()))?new Date():S.cursor);
+
+function dbError(err){
+  const m=String(err&&(err.message||err.error_description)||"");
+  if(/JWT|session|not_signed_in/i.test(m))return "Deine Anmeldung ist abgelaufen. Bitte melde dich neu an.";
+  if(/row-level security|permission/i.test(m))return "Dafür fehlt dir die Berechtigung in diesem Kalender.";
+  if(/Failed to fetch|NetworkError|network/i.test(m))return "Keine Verbindung. Prüfe dein Internet und versuche es noch einmal.";
+  return "Das hat nicht geklappt"+(m?" ("+m+")":"")+".";
+}
+
+let busy=false;
+$("ev-form").addEventListener("submit",async e=>{
+  e.preventDefault();if(busy)return;
+  const title=$("ev-title").value.trim();const date=$("ev-date").value;let endDate=$("ev-enddate").value||date;
+  if(!title||!parse(date)){$("ev-err").textContent="Bitte Titel und Datum angeben.";return;}
+  if(endDate<date)endDate=date;
+  const allDay=$("ev-allday").checked;
+  if(!allDay&&date===endDate&&$("ev-end").value&&$("ev-end").value<$("ev-start").value){$("ev-err").textContent="Das Ende liegt vor dem Beginn.";return;}
+  const rep=$("ev-repeat").value;
+  const row={family_id:S.family.id,title,date,end_date:endDate,all_day:allDay,
+    start_time:allDay||!$("ev-start").value?null:$("ev-start").value,end_time:allDay||!$("ev-end").value?null:$("ev-end").value,
+    people:[...evPeopleSel],repeat:rep,repeat_until:rep==="none"||!$("ev-until").value?null:$("ev-until").value,
+    location:$("ev-loc").value.trim()||null,note:$("ev-note").value.trim()||null};
+  busy=true;$("ev-save").disabled=true;
+  const q=S.editing?S.sb.from("events").update(row).eq("id",S.editing):S.sb.from("events").insert(row);
+  const {error}=await q;
+  busy=false;$("ev-save").disabled=false;
+  if(error){$("ev-err").textContent=dbError(error);return;}
+  close("dlg-event");await loadEvents();
+  const d=parse(date);if(d.getMonth()!==S.cursor.getMonth()||d.getFullYear()!==S.cursor.getFullYear())S.cursor=firstOfMonth(d);
+  render();
+});
+let delArmed=false;
+$("ev-del").onclick=async()=>{
+  if(!S.editing)return;
+  if(!delArmed){delArmed=true;$("ev-del").textContent="Wirklich löschen?";setTimeout(()=>{delArmed=false;$("ev-del").textContent="Löschen";},3000);return;}
+  delArmed=false;$("ev-del").textContent="Löschen";
+  const {error}=await S.sb.from("events").delete().eq("id",S.editing);
+  if(error){$("ev-err").textContent=dbError(error);return;}
+  close("dlg-event");await loadEvents();render();
+};
+
+/* Farbwähler */
+function colorPicker(box,initial){
+  let val=initial;box.innerHTML="";
+  COLORS.forEach(c=>{const b=document.createElement("button");b.type="button";b.style.setProperty("--c",c);b.setAttribute("aria-label","Farbe "+c);
+    b.setAttribute("aria-pressed",c===val);b.onclick=()=>{val=c;box.querySelectorAll("button").forEach(x=>x.setAttribute("aria-pressed",x===b));};box.appendChild(b);});
+  return ()=>val;
+}
+function nextColor(){const used=new Set(Object.values(S.people).map(p=>p.color));return COLORS.find(c=>!used.has(c))||COLORS[Object.keys(S.people).length%COLORS.length];}
+
+/* ---------- Familie & Einladen ---------- */
+function inviteUrl(){return location.origin+location.pathname+"?einladung="+encodeURIComponent(S.family.invite_code);}
+let famColor=()=>COLORS[0];
+async function openFamily(){
+  $("fam-err").textContent="";$("inv-msg").textContent="";
+  $("inv-link").textContent=inviteUrl();$("inv-code").textContent=S.family.invite_code;
+  $("inv-share").hidden=!navigator.share;
+  const owner=S.role==="owner";
+  $("inv-rotate").hidden=!owner;$("fam-owner").hidden=!owner;$("fam-leave").hidden=owner;
+  $("fam-rename").value=S.family.name;
+  renderFamList();famColor=colorPicker($("fam-colors"),nextColor());
+  const sw=$("fam-switch");sw.innerHTML="";
+  $("fam-switch-wrap").hidden=S.families.length<2;
+  S.families.forEach(f=>{const o=document.createElement("option");o.value=f.id;o.textContent=f.name;o.selected=f.id===S.family.id;sw.appendChild(o);});
+  $("fam-me").textContent=S.session?.user?.email?("Angemeldet als "+S.session.user.email):"";
+  open("dlg-family");
+}
+function renderFamList(){
+  const box=$("fam-list");box.innerHTML="";
+  const list=personList();
+  if(!list.length){box.innerHTML='<p class="hint" style="margin:0">Noch niemand angelegt.</p>';return;}
+  for(const [id,p] of list){
+    const row=document.createElement("div");row.className="fam-row";
+    const tag=p.user_id?(p.user_id===S.uid?"du":"mit Konto"):"ohne Konto";
+    row.innerHTML='<span class="sw" style="--c:'+esc(p.color)+';background:'+esc(p.color)+'"></span><span>'+esc(p.name)+' <small>· '+tag+'</small></span>';
+    const del=document.createElement("button");del.type="button";del.className="btn danger";del.textContent="Entfernen";
+    let armed=false;
+    del.onclick=async()=>{
+      if(!armed){armed=true;del.textContent="Sicher?";setTimeout(()=>{armed=false;del.textContent="Entfernen";},3000);return;}
+      const {error}=await S.sb.from("people").delete().eq("id",id);
+      if(error){$("fam-err").textContent=dbError(error);return;}
+      await loadPeople();renderFamList();render();
+    };
+    row.appendChild(del);box.appendChild(row);
+  }
+}
+$("btn-family").onclick=openFamily;$("btn-family2").onclick=openFamily;
+$("fam-add").addEventListener("submit",async e=>{
+  e.preventDefault();const name=$("fam-name").value.trim();if(!name)return;
+  const {error}=await S.sb.from("people").insert({family_id:S.family.id,name,color:famColor()});
+  if(error){$("fam-err").textContent=dbError(error);return;}
+  $("fam-name").value="";await loadPeople();renderFamList();render();famColor=colorPicker($("fam-colors"),nextColor());
+});
+$("inv-copy").onclick=async()=>{
+  try{await navigator.clipboard.writeText(inviteUrl());$("inv-msg").textContent="Link kopiert.";}
+  catch{$("inv-msg").textContent="Kopieren ging nicht. Markiere den Link oben und kopiere ihn von Hand.";}
+};
+$("inv-share").onclick=async()=>{
+  try{await navigator.share({title:"Familienkalender",text:"Komm in unseren Familienkalender „"+S.family.name+"“. Öffne den Link, leg ein Konto an, fertig:",url:inviteUrl()});}catch{}
+};
+$("inv-rotate").onclick=async()=>{
+  const {data,error}=await S.sb.rpc("rotate_invite_code",{p_family:S.family.id});
+  if(error){$("fam-err").textContent=dbError(error);return;}
+  S.family.invite_code=data;$("inv-link").textContent=inviteUrl();$("inv-code").textContent=data;
+  $("inv-msg").textContent="Neuer Code erzeugt. Der alte Link funktioniert nicht mehr.";
+};
+$("fam-rename-save").onclick=async()=>{
+  const name=$("fam-rename").value.trim();if(!name)return;
+  const {error}=await S.sb.from("families").update({name}).eq("id",S.family.id);
+  if(error){$("fam-err").textContent=dbError(error);return;}
+  S.family.name=name;const f=S.families.find(x=>x.id===S.family.id);if(f)f.name=name;render();
+  $("fam-err").textContent="";
+};
+$("fam-switch").onchange=async()=>{LS.set("fk-family",$("fam-switch").value);close("dlg-family");await route();};
+let leaveArmed=false;
+$("fam-leave").onclick=async()=>{
+  if(!leaveArmed){leaveArmed=true;$("fam-leave").textContent="Wirklich verlassen?";setTimeout(()=>{leaveArmed=false;$("fam-leave").textContent="Kalender verlassen";},3000);return;}
+  const {error}=await S.sb.from("family_members").delete().eq("family_id",S.family.id).eq("user_id",S.uid);
+  if(error){$("fam-err").textContent=dbError(error);return;}
+  LS.set("fk-family",null);close("dlg-family");await route();
+};
+async function logout(){await S.sb.auth.signOut();close("dlg-family");}
+$("fam-logout").onclick=logout;$("onb-logout").onclick=logout;
+
+/* ---------- Wer bist du ---------- */
+let whoColor=()=>COLORS[0];let whoClaim=null;
+function maybeAskWho(){
+  if(S.whoAsked||myPerson())return;
+  if(LS.get("fk-who-skip-"+S.family.id))return;
+  S.whoAsked=true;
+  const free=personList().filter(([,p])=>!p.user_id);
+  const claim=$("who-claim");claim.innerHTML="";whoClaim=null;
+  if(free.length){
+    claim.innerHTML='<div class="lbl" style="margin-bottom:6px">Bist du schon angelegt?</div>';
+    const chips=document.createElement("div");chips.className="chips";
+    free.forEach(([id,p])=>{const b=document.createElement("button");b.type="button";b.className="chip";b.style.setProperty("--c",p.color);b.textContent=p.name;b.setAttribute("aria-pressed","false");
+      b.onclick=()=>{whoClaim=whoClaim===id?null:id;chips.querySelectorAll(".chip").forEach(x=>x.setAttribute("aria-pressed",x===b&&whoClaim===id));};chips.appendChild(b);});
+    claim.appendChild(chips);
+  }
+  $("who-name").value="";whoColor=colorPicker($("who-colors"),nextColor());
+  open("dlg-who");
+}
+$("who-skip").onclick=()=>{LS.set("fk-who-skip-"+S.family.id,"1");close("dlg-who");};
+$("who-form").addEventListener("submit",async e=>{
+  e.preventDefault();$("who-err").textContent="";
+  let res;
+  if(whoClaim)res=await S.sb.from("people").update({user_id:S.uid}).eq("id",whoClaim).is("user_id",null);
+  else{const name=$("who-name").value.trim();if(!name){$("who-err").textContent="Bitte gib deinen Namen ein oder wähle oben einen aus.";return;}
+    res=await S.sb.from("people").insert({family_id:S.family.id,name,color:whoColor(),user_id:S.uid});}
+  if(res.error){$("who-err").textContent=dbError(res.error);return;}
+  close("dlg-who");await loadPeople();render();
+});
+
+/* ---------- Navigation ---------- */
+$("prev").onclick=()=>{S.cursor=new Date(S.cursor.getFullYear(),S.cursor.getMonth()-1,1);render();};
+$("next").onclick=()=>{S.cursor=new Date(S.cursor.getFullYear(),S.cursor.getMonth()+1,1);render();};
+$("todayBtn").onclick=()=>{S.cursor=firstOfMonth(new Date());render();};
+$("v-month").onclick=()=>{S.view="month";LS.set("fk-view","month");render();};
+$("v-list").onclick=()=>{S.view="list";LS.set("fk-view","list");render();};
+{const v=LS.get("fk-view");if(v==="list"||v==="month")S.view=v;else if(window.matchMedia&&matchMedia("(max-width:600px)").matches)S.view="list";}
+
+/* ---------- Daten laden ---------- */
+async function loadPeople(){
+  const {data,error}=await S.sb.from("people").select("*").eq("family_id",S.family.id);
+  if(error){setStatus(dbError(error));return;}
+  const o={};data.forEach(r=>o[r.id]=r);S.people=o;
+}
+async function loadEvents(){
+  const {data,error}=await S.sb.from("events").select("*").eq("family_id",S.family.id).limit(5000);
+  if(error){setStatus(dbError(error));return;}
+  const o={};data.forEach(r=>o[r.id]=rowToEv(r));S.events=o;
+}
+let reloadTimer=null;
+function scheduleReload(){clearTimeout(reloadTimer);reloadTimer=setTimeout(async()=>{await Promise.all([loadPeople(),loadEvents()]);render();if($("dlg-family").classList.contains("open"))renderFamList();},300);}
+function subscribe(){
+  if(S.channel){S.sb.removeChannel(S.channel);S.channel=null;}
+  const f="family_id=eq."+S.family.id;
+  S.channel=S.sb.channel("fam-"+S.family.id)
+    .on("postgres_changes",{event:"*",schema:"public",table:"events",filter:f},scheduleReload)
+    .on("postgres_changes",{event:"*",schema:"public",table:"people",filter:f},scheduleReload)
+    .subscribe();
+}
+document.addEventListener("visibilitychange",()=>{if(document.visibilityState==="visible"&&S.family)scheduleReload();});
+
+/* ---------- Ablauf ---------- */
+const params=new URLSearchParams(location.search);
+if(params.get("einladung")){LS.set("fk-invite",params.get("einladung"));history.replaceState(null,"",location.pathname);}
+
+async function route(){
+  if(S.recovering){show("v-recover");return;}
+  if(!S.session){
+    $("auth-invite").hidden=!LS.get("fk-invite");
+    if(LS.get("fk-invite"))setMode("signup");
+    show("v-auth");return;
+  }
+  S.uid=S.session.user.id;
+  const invite=LS.get("fk-invite");
+  if(invite){
+    const {data,error}=await S.sb.rpc("join_family",{p_code:invite});
+    LS.set("fk-invite",null);
+    if(error){$("onb-err").textContent=/invalid_code/.test(error.message)?"Der Einladungslink ist ungültig oder abgelaufen. Bitte frag nach einem neuen.":dbError(error);}
+    else LS.set("fk-family",data);
+  }
+  const {data:rows,error}=await S.sb.from("family_members").select("role, families(id,name,invite_code)").eq("user_id",S.uid);
+  if(error){show("v-onb");$("onb-err").textContent=dbError(error);return;}
+  S.families=rows.filter(r=>r.families).map(r=>({...r.families,role:r.role}));
+  if(!S.families.length){S.family=null;show("v-onb");return;}
+  const want=LS.get("fk-family");
+  const fam=S.families.find(f=>f.id===want)||S.families[0];
+  S.family={id:fam.id,name:fam.name,invite_code:fam.invite_code};S.role=fam.role;LS.set("fk-family",fam.id);
+  S.whoAsked=false;S.hidden.clear();setStatus("Termine werden geladen …");
+  show("v-cal");
+  await Promise.all([loadPeople(),loadEvents()]);
+  setStatus("");render();subscribe();maybeAskWho();
+}
+
+/* Anmeldung */
+let mode="login";
+function setMode(m){
+  mode=m;$("tab-login").setAttribute("aria-pressed",m==="login");$("tab-signup").setAttribute("aria-pressed",m==="signup");
+  $("auth-submit").textContent=m==="login"?"Anmelden":"Konto anlegen";
+  $("auth-h").textContent=m==="login"?"Willkommen zurück":"Konto anlegen";
+  $("auth-pass").autocomplete=m==="login"?"current-password":"new-password";
+  $("auth-passhint").hidden=m==="login";$("auth-forgot").hidden=m!=="login";
+  $("auth-err").textContent="";$("auth-ok").textContent="";
+}
+$("tab-login").onclick=()=>setMode("login");$("tab-signup").onclick=()=>setMode("signup");
+function authError(err){
+  const m=String(err&&err.message||"");
+  if(/Invalid login credentials/i.test(m))return "E-Mail oder Passwort stimmt nicht.";
+  if(/already registered|already exists/i.test(m))return "Für diese E-Mail gibt es schon ein Konto. Bitte melde dich an.";
+  if(/Email not confirmed/i.test(m))return "Bitte bestätige zuerst deine E-Mail-Adresse über den Link in der Mail.";
+  if(/Password should be|weak/i.test(m))return "Das Passwort ist zu kurz oder zu einfach. Nimm mindestens 8 Zeichen.";
+  if(/rate limit|too many/i.test(m))return "Zu viele Versuche. Warte ein paar Minuten und versuche es erneut.";
+  if(/not authorized|email_address_not_authorized/i.test(m))return "An diese Adresse kann gerade keine E-Mail verschickt werden. Bitte wende dich an die Person, die den Kalender eingerichtet hat.";
+  if(/Failed to fetch/i.test(m))return "Keine Verbindung. Prüfe dein Internet.";
+  return m||"Das hat nicht geklappt.";
+}
+$("auth-form").addEventListener("submit",async e=>{
+  e.preventDefault();$("auth-err").textContent="";$("auth-ok").textContent="";
+  const email=$("auth-email").value.trim(),password=$("auth-pass").value;
+  if(!email||!password){$("auth-err").textContent="Bitte E-Mail und Passwort eingeben.";return;}
+  if(mode==="signup"&&password.length<8){$("auth-err").textContent="Das Passwort braucht mindestens 8 Zeichen.";return;}
+  $("auth-submit").disabled=true;
+  const res=mode==="login"?await S.sb.auth.signInWithPassword({email,password})
+    :await S.sb.auth.signUp({email,password,options:{emailRedirectTo:location.origin+location.pathname}});
+  $("auth-submit").disabled=false;
+  if(res.error){$("auth-err").textContent=authError(res.error);return;}
+  if(mode==="signup"&&!res.data.session){$("auth-ok").textContent="Fast fertig: Wir haben dir eine E-Mail geschickt. Klicke auf den Link darin, dann bist du angemeldet.";}
+});
+$("auth-forgot").onclick=async()=>{
+  const email=$("auth-email").value.trim();$("auth-err").textContent="";$("auth-ok").textContent="";
+  if(!email){$("auth-err").textContent="Gib oben deine E-Mail ein, dann schicken wir dir einen Link.";return;}
+  const {error}=await S.sb.auth.resetPasswordForEmail(email,{redirectTo:location.origin+location.pathname});
+  if(error){$("auth-err").textContent=authError(error);return;}
+  $("auth-ok").textContent="Falls es ein Konto gibt, kommt gleich eine E-Mail mit einem Link zum Zurücksetzen.";
+};
+$("rec-form").addEventListener("submit",async e=>{
+  e.preventDefault();const p=$("rec-pass").value;
+  if(p.length<8){$("rec-err").textContent="Mindestens 8 Zeichen.";return;}
+  const {error}=await S.sb.auth.updateUser({password:p});
+  if(error){$("rec-err").textContent=authError(error);return;}
+  S.recovering=false;route();
+});
+
+/* Start */
+$("onb-create").addEventListener("submit",async e=>{
+  e.preventDefault();$("onb-err").textContent="";
+  const {data,error}=await S.sb.rpc("create_family",{p_name:$("onb-name").value.trim()});
+  if(error){$("onb-err").textContent=dbError(error);return;}
+  LS.set("fk-family",data);route();
+});
+$("onb-join").addEventListener("submit",async e=>{
+  e.preventDefault();$("onb-err").textContent="";
+  let code=$("onb-code").value.trim();const m=code.match(/einladung=([A-Za-z0-9]+)/);if(m)code=m[1];
+  const {data,error}=await S.sb.rpc("join_family",{p_code:code});
+  if(error){$("onb-err").textContent=/invalid_code/.test(error.message)?"Diesen Code gibt es nicht. Prüfe ihn oder frag nach einem neuen Link.":dbError(error);return;}
+  LS.set("fk-family",data);route();
+});
+
+(async function boot(){
+  if(!/^https:\/\//.test(SUPABASE_URL)||SUPABASE_KEY.length<20||!window.supabase){show("v-config");return;}
+  S.sb=window.supabase.createClient(SUPABASE_URL,SUPABASE_KEY,{auth:{persistSession:true,autoRefreshToken:true,detectSessionInUrl:true}});
+  let first=true;
+  S.sb.auth.onAuthStateChange((event,session)=>{
+    if(event==="PASSWORD_RECOVERY")S.recovering=true;
+    const changed=(session?.user?.id||null)!==(S.session?.user?.id||null);
+    S.session=session;
+    if(event==="SIGNED_OUT"){S.family=null;S.people={};S.events={};if(S.channel){S.sb.removeChannel(S.channel);S.channel=null;}}
+    if(first||changed||event==="PASSWORD_RECOVERY"){first=false;setTimeout(route,0);}
+  });
+})();
+
+if("serviceWorker" in navigator&&location.protocol==="https:")navigator.serviceWorker.register("sw.js").catch(()=>{});
+})();
+</script>
+</body>
+</html>

@@ -2,7 +2,7 @@
 <html lang="de">
 <head>
 <meta charset="utf-8">
-<meta name="viewport" content="width=device-width, initial-scale=1">
+<meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=1, viewport-fit=cover">
 <meta name="theme-color" content="#1f6f8b">
 <meta name="apple-mobile-web-app-capable" content="yes">
 <meta name="apple-mobile-web-app-title" content="Kalender">
@@ -101,18 +101,21 @@
   <header>
     <h1><span class="dot"></span><span id="famName">Familienkalender</span></h1>
     <div class="spacer"></div>
-    <button class="btn" id="btn-family" type="button">Familie &amp; Einladen</button>
+    <button class="btn icon" id="btn-settings" type="button" aria-label="Einstellungen" title="Einstellungen">⚙︎</button>
+    <button class="btn" id="btn-find" type="button">Zeit finden</button>
     <button class="btn primary" id="btn-new" type="button">+ Termin</button>
   </header>
   <header>
-    <button class="btn icon" id="prev" type="button" aria-label="Vorheriger Monat">‹</button>
+    <button class="btn icon" id="prev" type="button" aria-label="Zurück">‹</button>
     <button class="btn" id="todayBtn" type="button">Heute</button>
-    <button class="btn icon" id="next" type="button" aria-label="Nächster Monat">›</button>
-    <p class="month-title" id="monthTitle"></p>
+    <button class="btn icon" id="next" type="button" aria-label="Weiter">›</button>
+    <button class="month-title" id="monthTitle" type="button" aria-label="Monat oder Jahr wählen"></button>
     <div class="spacer"></div>
     <div class="seg" role="group" aria-label="Ansicht">
       <button type="button" id="v-month" aria-pressed="true">Monat</button>
+      <button type="button" id="v-year" aria-pressed="false">Jahr</button>
       <button type="button" id="v-list" aria-pressed="false">Liste</button>
+      <button type="button" id="v-week" aria-pressed="false">7 Tage</button>
     </div>
   </header>
   <div class="main">
@@ -123,10 +126,6 @@
         <div class="people" id="people"></div>
         <p class="hint" id="peopleHint"></p>
       </section>
-      <section class="panel">
-        <h2>Nächste 7 Tage</h2>
-        <ul class="upcoming" id="upcoming"></ul>
-      </section>
     </aside>
     <section id="view"></section>
   </div>
@@ -136,18 +135,24 @@
 <div class="backdrop" id="dlg-event" role="dialog" aria-modal="true" aria-labelledby="ev-h">
   <form class="dialog" id="ev-form">
     <h3 id="ev-h">Neuer Termin</h3>
-    <div class="field"><label for="ev-title">Was?</label><input id="ev-title" required maxlength="120" placeholder="z. B. Zahnarzt, Elternabend, Oma besuchen"></div>
-    <label class="check"><input type="checkbox" id="ev-allday"> Ganztägig</label>
+    <div class="seg" role="group" aria-label="Art des Eintrags" id="ev-kind" style="align-self:flex-start">
+      <button type="button" data-kind="event" aria-pressed="true">Termin</button>
+      <button type="button" data-kind="birthday" aria-pressed="false">🎂 Geburtstag</button>
+      <button type="button" data-kind="family_time" aria-pressed="false">Familienzeit</button>
+    </div>
+    <p class="hint" id="ev-kindhint" style="margin:-4px 0 0" hidden></p>
+    <div class="field"><label for="ev-title" id="ev-title-l">Was?</label><input id="ev-title" required maxlength="120" placeholder="z. B. Zahnarzt, Elternabend, Oma besuchen"></div>
+    <label class="check" id="ev-allday-w"><input type="checkbox" id="ev-allday"> Ganztägig</label>
     <div class="row">
-      <div class="field"><label for="ev-date">Von (Datum)</label><input type="date" id="ev-date" required></div>
-      <div class="field"><label for="ev-enddate">Bis (Datum)</label><input type="date" id="ev-enddate"></div>
+      <div class="field"><label for="ev-date" id="ev-date-l">Von (Datum)</label><input type="date" id="ev-date" required></div>
+      <div class="field" id="ev-enddate-w"><label for="ev-enddate">Bis (Datum)</label><input type="date" id="ev-enddate"></div>
     </div>
     <div class="row" id="ev-times">
       <div class="field"><label for="ev-start">Beginn</label><input type="time" id="ev-start" value="09:00"></div>
       <div class="field"><label for="ev-end">Ende</label><input type="time" id="ev-end" value="10:00"></div>
     </div>
-    <div class="field"><span class="lbl">Wer ist dabei?</span><div class="chips" id="ev-people"></div></div>
-    <div class="row">
+    <div class="field"><span class="lbl" id="ev-people-l">Wer ist dabei?</span><div class="chips" id="ev-people"></div></div>
+    <div class="row" id="ev-repeat-w">
       <div class="field"><label for="ev-repeat">Wiederholen</label>
         <select id="ev-repeat"><option value="none">Nie</option><option value="weekly">Jede Woche</option><option value="biweekly">Alle 2 Wochen</option><option value="monthly">Jeden Monat</option><option value="yearly">Jedes Jahr</option></select></div>
       <div class="field"><label for="ev-until">Wiederholen bis</label><input type="date" id="ev-until"></div>
@@ -190,8 +195,9 @@
 <!-- Familie -->
 <div class="backdrop" id="dlg-family" role="dialog" aria-modal="true" aria-labelledby="fam-h">
   <div class="dialog">
-    <h3 id="fam-h">Familie &amp; Einladen</h3>
-    <div class="box" style="display:flex;flex-direction:column;gap:10px">
+    <h3 id="fam-h">Familie</h3>
+    <p class="hint" id="fam-adminhint" style="margin:0" hidden></p>
+    <div class="box" id="fam-invite" style="display:flex;flex-direction:column;gap:10px">
       <div class="lbl">Jemanden einladen</div>
       <p class="hint" style="margin:0">Schick diesen Link per WhatsApp, SMS oder E-Mail. Wer ihn öffnet, legt ein Konto an und ist sofort in eurem Kalender.</p>
       <div class="invite-link" id="inv-link"></div>
@@ -217,15 +223,81 @@
       <div class="field"><label for="fam-rename">Name des Kalenders</label><input id="fam-rename" maxlength="60"></div>
       <div class="actions"><button class="btn" type="button" id="fam-rename-save">Umbenennen</button></div>
     </div>
-    <div class="field" id="fam-switch-wrap" hidden><label for="fam-switch">Anderen Kalender öffnen</label><select id="fam-switch"></select></div>
     <p class="err" id="fam-err"></p>
     <div class="actions">
-      <span class="hint left" id="fam-me" style="margin:0;align-self:center"></span>
-      <button type="button" class="btn danger" id="fam-leave">Kalender verlassen</button>
-      <button type="button" class="btn" id="fam-logout">Abmelden</button>
+      <button type="button" class="btn danger left" id="fam-leave">Kalender verlassen</button>
       <button type="button" class="btn primary" data-close>Fertig</button>
     </div>
   </div>
+</div>
+
+<!-- Einstellungen -->
+<div class="backdrop" id="dlg-settings" role="dialog" aria-modal="true" aria-labelledby="set-h">
+  <div class="dialog">
+    <h3 id="set-h">Einstellungen</h3>
+    <p class="hint" style="margin:-6px 0 0">Gilt nur auf diesem Gerät.</p>
+    <div class="field"><span class="lbl">Schriftgröße</span>
+      <div class="seg" role="group" aria-label="Schriftgröße" id="set-size" style="align-self:flex-start">
+        <button type="button" data-size="m">Normal</button><button type="button" data-size="l">Groß</button><button type="button" data-size="xl">Sehr groß</button>
+      </div></div>
+    <label class="check"><input type="checkbox" id="set-hol"> Feiertage anzeigen</label>
+    <div class="field" id="set-region-w"><label for="set-region">Feiertage für</label>
+      <select id="set-region">
+        <option value="DE">Deutschland (nur bundesweite)</option>
+        <option value="BW">Baden-Württemberg</option><option value="BY">Bayern</option><option value="BE">Berlin</option><option value="BB">Brandenburg</option>
+        <option value="HB">Bremen</option><option value="HH">Hamburg</option><option value="HE">Hessen</option><option value="MV">Mecklenburg-Vorpommern</option>
+        <option value="NI">Niedersachsen</option><option value="NW">Nordrhein-Westfalen</option><option value="RP">Rheinland-Pfalz</option><option value="SL">Saarland</option>
+        <option value="SN">Sachsen</option><option value="ST">Sachsen-Anhalt</option><option value="SH">Schleswig-Holstein</option><option value="TH">Thüringen</option>
+        <option value="LU">Luxemburg</option>
+      </select></div>
+    <div class="field" id="set-switch-wrap" hidden><label for="set-switch">Anderen Kalender öffnen</label><select id="set-switch"></select></div>
+    <div class="actions">
+      <span class="hint left" id="set-me" style="margin:0;align-self:center"></span>
+      <button type="button" class="btn" id="set-logout">Abmelden</button>
+      <button type="button" class="btn primary" data-close>Fertig</button>
+    </div>
+  </div>
+</div>
+
+<!-- Monat/Jahr wählen -->
+<div class="backdrop" id="dlg-pick" role="dialog" aria-modal="true" aria-label="Monat und Jahr wählen">
+  <div class="dialog" style="max-width:360px">
+    <div class="pick-y">
+      <button type="button" class="btn icon" id="pick-prev" aria-label="Vorheriges Jahr">‹</button>
+      <b id="pick-year"></b>
+      <button type="button" class="btn icon" id="pick-next" aria-label="Nächstes Jahr">›</button>
+    </div>
+    <div class="pick-m" id="pick-months"></div>
+    <div class="actions">
+      <button type="button" class="btn left" id="pick-yearview">Ganzes Jahr ansehen</button>
+      <button type="button" class="btn" data-close>Abbrechen</button>
+    </div>
+  </div>
+</div>
+
+<!-- Zeit finden -->
+<div class="backdrop" id="dlg-find" role="dialog" aria-modal="true" aria-labelledby="find-h">
+  <form class="dialog" id="find-form">
+    <h3 id="find-h">Gemeinsame Zeit finden</h3>
+    <div class="field"><span class="lbl">Wer soll dabei sein?</span><div class="chips" id="find-people"></div></div>
+    <div class="row">
+      <div class="field"><label for="find-from">Ab</label><input type="date" id="find-from" required></div>
+      <div class="field"><label for="find-to">Bis</label><input type="date" id="find-to" required></div>
+    </div>
+    <div class="row">
+      <div class="field"><label for="find-dur">Dauer</label>
+        <select id="find-dur"><option value="60">1 Stunde</option><option value="120" selected>2 Stunden</option><option value="180">3 Stunden</option><option value="240">4 Stunden</option><option value="day">Ganzer Tag</option></select></div>
+      <div class="field"><label for="find-win">Tageszeit</label>
+        <select id="find-win"><option value="480-1260">8 bis 21 Uhr</option><option value="480-720">Vormittags (8–12)</option><option value="720-1080">Nachmittags (12–18)</option><option value="1020-1320">Abends (17–22)</option></select></div>
+    </div>
+    <label class="check"><input type="checkbox" id="find-we"> Nur Wochenende und Feiertage</label>
+    <p class="hint" style="margin:-6px 0 0">Vorgemerkte Familienzeit wird zuerst vorgeschlagen. Geburtstage blockieren nichts.</p>
+    <div class="slots" id="find-out"></div>
+    <div class="actions">
+      <button type="button" class="btn" data-close>Schließen</button>
+      <button type="submit" class="btn primary">Suchen</button>
+    </div>
+  </form>
 </div>
 
 <!-- Wer bist du -->
@@ -259,8 +331,11 @@ const DOW=["Mo","Di","Mi","Do","Fr","Sa","So"];
 const DOWL=["Sonntag","Montag","Dienstag","Mittwoch","Donnerstag","Freitag","Samstag"];
 const LS={get(k){try{return localStorage.getItem(k);}catch{return null;}},set(k,v){try{v==null?localStorage.removeItem(k):localStorage.setItem(k,v);}catch{}}};
 
-const S={sb:null,session:null,uid:null,families:[],family:null,role:null,people:{},events:{},channel:null,
-  cursor:firstOfMonth(new Date()),view:"month",hidden:new Set(),whoAsked:false,recovering:false};
+const S={sb:null,session:null,uid:null,families:[],family:null,role:null,people:{},events:{},members:[],channel:null,
+  cursor:firstOfMonth(new Date()),week:today0(),view:"month",hidden:new Set(),whoAsked:false,recovering:false};
+const SET={size:LS.get("fk-size")||"m",hol:LS.get("fk-hol")!=="0",region:LS.get("fk-region")||"DE"};
+function applySize(){document.documentElement.dataset.size=SET.size;}
+applySize();
 
 const $=id=>document.getElementById(id);
 function esc(s){return String(s??"").replace(/[&<>"']/g,c=>({"&":"&amp;","<":"&lt;",">":"&gt;",'"':"&quot;","'":"&#39;"}[c]));}
@@ -269,10 +344,44 @@ function ymd(d){return d.getFullYear()+"-"+pad(d.getMonth()+1)+"-"+pad(d.getDate
 function parse(s){if(!s||!/^\d{4}-\d{2}-\d{2}$/.test(s))return null;const[a,b,c]=s.split("-").map(Number);return new Date(a,b-1,c);}
 function addDays(d,n){const x=new Date(d);x.setDate(x.getDate()+n);return x;}
 function firstOfMonth(d){return new Date(d.getFullYear(),d.getMonth(),1);}
+function today0(){const t=new Date();t.setHours(0,0,0,0);return t;}
 function dayDiff(a,b){return Math.round((Date.UTC(b.getFullYear(),b.getMonth(),b.getDate())-Date.UTC(a.getFullYear(),a.getMonth(),a.getDate()))/864e5);}
 function sameDay(a,b){return a.getFullYear()===b.getFullYear()&&a.getMonth()===b.getMonth()&&a.getDate()===b.getDate();}
 function fmtLong(d){return DOWL[d.getDay()]+", "+d.getDate()+". "+MONTHS[d.getMonth()]+" "+d.getFullYear();}
 function fmtShort(d){return pad(d.getDate())+"."+pad(d.getMonth()+1)+".";}
+function fmtDay(d){return DOWL[d.getDay()]+", "+d.getDate()+". "+MONTHS[d.getMonth()];}
+function toMin(t){if(!t)return null;const[h,m]=String(t).split(":").map(Number);return h*60+m;}
+function fromMin(n){return pad(Math.floor(n/60))+":"+pad(n%60);}
+function isAdmin(){return S.role==="owner";}
+
+/* ---------- Feiertage (werden im Browser berechnet) ---------- */
+function easter(y){
+  const a=y%19,b=Math.floor(y/100),c=y%100,d=Math.floor(b/4),e=b%4,f=Math.floor((b+8)/25),g=Math.floor((b-f+1)/3),
+    h=(19*a+b-d-g+15)%30,i=Math.floor(c/4),k=c%4,l=(32+2*e+2*i-h-k)%7,m=Math.floor((a+11*h+22*l)/451),x=h+l-7*m+114;
+  return new Date(y,Math.floor(x/31)-1,(x%31)+1);
+}
+const HOLCACHE={};
+function holidaysOf(y){
+  const r=SET.region,key=y+r;if(HOLCACHE[key])return HOLCACHE[key];
+  const E=easter(y),o={},D=(m,d)=>new Date(y,m-1,d);
+  const add=(d,n,regs)=>{if(!regs||regs.includes(r))o[ymd(d)]=n;};
+  if(r==="LU"){
+    add(D(1,1),"Neujahr");add(addDays(E,1),"Ostermontag");add(D(5,1),"Tag der Arbeit");add(D(5,9),"Europatag");
+    add(addDays(E,39),"Christi Himmelfahrt");add(addDays(E,50),"Pfingstmontag");add(D(6,23),"Nationalfeiertag");
+    add(D(8,15),"Mariä Himmelfahrt");add(D(11,1),"Allerheiligen");add(D(12,25),"1. Weihnachtstag");add(D(12,26),"2. Weihnachtstag");
+  }else{
+    add(D(1,1),"Neujahr");add(D(1,6),"Heilige Drei Könige",["BW","BY","ST"]);add(D(3,8),"Frauentag",["BE","MV"]);
+    add(addDays(E,-2),"Karfreitag");add(E,"Ostersonntag",["BB"]);add(addDays(E,1),"Ostermontag");add(D(5,1),"Tag der Arbeit");
+    add(addDays(E,39),"Christi Himmelfahrt");add(addDays(E,49),"Pfingstsonntag",["BB"]);add(addDays(E,50),"Pfingstmontag");
+    add(addDays(E,60),"Fronleichnam",["BW","BY","HE","NW","RP","SL"]);add(D(8,15),"Mariä Himmelfahrt",["SL","BY"]);
+    add(D(9,20),"Weltkindertag",["TH"]);add(D(10,3),"Tag der Deutschen Einheit");
+    add(D(10,31),"Reformationstag",["BB","HB","HH","MV","NI","SN","ST","SH","TH"]);add(D(11,1),"Allerheiligen",["BW","BY","NW","RP","SL"]);
+    let b=D(11,22);while(b.getDay()!==3)b=addDays(b,-1);add(b,"Buß- und Bettag",["SN"]);
+    add(D(12,25),"1. Weihnachtstag");add(D(12,26),"2. Weihnachtstag");
+  }
+  return HOLCACHE[key]=o;
+}
+function holiday(d){return SET.hol?(holidaysOf(d.getFullYear())[ymd(d)]||null):null;}
 function setStatus(t){$("status").textContent=t||"";}
 function show(view){["v-config","v-auth","v-recover","v-onb","v-cal"].forEach(v=>$(v).hidden=v!==view);}
 
@@ -311,7 +420,14 @@ function visible(ev){
 }
 function evColor(ev){const id=(ev.people||[]).find(i=>S.people[i]);return id?(S.people[id].color||COLORS[0]):"#7d8b95";}
 function whoText(ev){const n=(ev.people||[]).filter(i=>S.people[i]).map(i=>S.people[i].name);return n.length?n.join(", "):"Ganze Familie";}
+function age(ev,occ){const b=parse(ev.date);const n=occ.start.getFullYear()-b.getFullYear();return n>0?n:null;}
+function evTitle(ev,occ){
+  if(ev.kind!=="birthday")return ev.title;
+  const a=occ?age(ev,occ):null;return "🎂 "+ev.title+(a?" ("+a+")":"");
+}
+function evCls(ev){return ev.kind==="birthday"?" bday":ev.kind==="family_time"?" ftime":"";}
 function timeText(ev,occ,day){
+  if(ev.kind==="birthday")return "Geburtstag";
   if(ev.allDay)return "Ganztägig";
   const multi=!sameDay(occ.start,occ.end);
   if(multi&&day){
@@ -321,10 +437,10 @@ function timeText(ev,occ,day){
   }
   return (ev.start||"")+(ev.end?"–"+ev.end:"");
 }
-function buildDays(from,to){
+function buildDays(from,to,all){
   const map={};
   for(const [id,ev] of Object.entries(S.events)){
-    if(!visible(ev))continue;
+    if(!all&&!visible(ev))continue;
     for(const occ of occurrences(ev,from,to)){
       let d=occ.start<from?new Date(from):new Date(occ.start);
       while(d<=occ.end&&d<=to){(map[ymd(d)]??=[]).push({id,ev,occ});d=addDays(d,1);}
@@ -340,19 +456,20 @@ function rowToEv(r){
   return {title:r.title,date:r.date,endDate:r.end_date||r.date,allDay:!!r.all_day,
     start:r.start_time?String(r.start_time).slice(0,5):"",end:r.end_time?String(r.end_time).slice(0,5):"",
     people:Array.isArray(r.people)?r.people:[],repeat:r.repeat||"none",repeatUntil:r.repeat_until||"",
-    location:r.location||"",note:r.note||"",createdBy:r.created_by};
+    location:r.location||"",note:r.note||"",createdBy:r.created_by,kind:r.kind||"event"};
 }
 
 /* ---------- Rendern ---------- */
+function weekTitle(){const e=addDays(S.week,6);return S.week.getDate()+". "+MONTHS[S.week.getMonth()].slice(0,3)+(S.week.getFullYear()!==e.getFullYear()?" "+S.week.getFullYear():"")+" – "+e.getDate()+". "+MONTHS[e.getMonth()].slice(0,3)+" "+e.getFullYear();}
 function render(){
   if(!S.family)return;
   $("famName").textContent=S.family.name||"Familienkalender";
   document.title=(S.family.name||"Familienkalender");
-  $("monthTitle").textContent=MONTHS[S.cursor.getMonth()]+" "+S.cursor.getFullYear();
-  $("v-month").setAttribute("aria-pressed",S.view==="month");
-  $("v-list").setAttribute("aria-pressed",S.view==="list");
-  renderPeople();renderUpcoming();
-  if(S.view==="month")renderMonth();else renderList();
+  const t=S.view==="year"?String(S.cursor.getFullYear()):S.view==="week"?weekTitle():MONTHS[S.cursor.getMonth()]+" "+S.cursor.getFullYear();
+  $("monthTitle").innerHTML=esc(t)+'<span class="caret" aria-hidden="true">▾</span>';
+  for(const v of ["month","year","list","week"])$("v-"+v).setAttribute("aria-pressed",S.view===v);
+  renderPeople();
+  ({month:renderMonth,year:renderYear,list:renderList,week:renderWeek})[S.view]();
 }
 function personList(){return Object.entries(S.people).sort((a,b)=>String(a[1].name).localeCompare(String(b[1].name),"de"));}
 function myPerson(){return Object.entries(S.people).find(([,p])=>p.user_id&&p.user_id===S.uid);}
@@ -373,22 +490,6 @@ function renderPeople(){
   el.appendChild(all);
   $("peopleHint").textContent=list.length?"Tippe auf einen Namen, um dessen Termine ein- oder auszublenden.":"Noch niemand angelegt. Unter „Verwalten“ fügst du die Familie hinzu.";
 }
-function renderUpcoming(){
-  const ul=$("upcoming");ul.innerHTML="";
-  const t=new Date();t.setHours(0,0,0,0);const to=addDays(t,6);
-  const days=buildDays(t,to);let n=0;
-  outer:for(let d=new Date(t);d<=to;d=addDays(d,1)){
-    for(const it of (days[ymd(d)]||[])){
-      if(!sameDay(d,it.occ.start)&&!sameDay(d,t))continue;
-      if(++n>8)break outer;
-      const li=document.createElement("li");
-      li.innerHTML='<span class="d">'+(sameDay(d,t)?"Heute":DOW[(d.getDay()+6)%7]+"<br>"+fmtShort(d))+'</span><span class="t" style="--c:'+esc(evColor(it.ev))+'">'+esc(it.ev.title)+'<small>'+esc(timeText(it.ev,it.occ,d))+' · '+esc(whoText(it.ev))+'</small></span>';
-      const dd=new Date(d);li.onclick=()=>openDetail(it.id,dd);
-      ul.appendChild(li);
-    }
-  }
-  if(!n)ul.innerHTML='<li style="display:block;color:var(--muted)">Keine Termine in den nächsten 7 Tagen.</li>';
-}
 function renderMonth(){
   const v=$("view");
   const first=S.cursor;const startOff=(first.getDay()+6)%7;
@@ -397,14 +498,17 @@ function renderMonth(){
   let html='<div class="cal"><div class="dow">'+DOW.map(d=>"<div>"+d+"</div>").join("")+'</div><div class="grid">';
   for(let i=0;i<42;i++){
     const d=addDays(gridStart,i);const key=ymd(d);const items=days[key]||[];
-    const cls=["cell"];if(d.getMonth()!==first.getMonth())cls.push("other");if(sameDay(d,today))cls.push("today");if(i%7>4)cls.push("weekend");
-    html+='<div class="'+cls.join(" ")+'" role="button" tabindex="0" data-day="'+key+'" aria-label="'+esc(fmtLong(d))+', '+items.length+' Termine"><span class="num">'+d.getDate()+'</span>';
+    const hol=holiday(d);
+    const cls=["cell"];if(d.getMonth()!==first.getMonth())cls.push("other");if(sameDay(d,today))cls.push("today");if(i%7>4)cls.push("weekend");if(hol)cls.push("holiday");
+    html+='<div class="'+cls.join(" ")+'" role="button" tabindex="0" data-day="'+key+'" aria-label="'+esc(fmtLong(d)+(hol?", "+hol:""))+', '+items.length+' Termine"><span class="num">'+d.getDate()+'</span>';
+    if(hol)html+='<span class="hol" title="'+esc(hol)+'">'+esc(hol)+'</span>';
     items.slice(0,3).forEach(it=>{
-      const allday=it.ev.allDay||!sameDay(it.occ.start,it.occ.end);
-      const tt=allday?"":'<b>'+esc(it.ev.start||"")+'</b>';
-      html+='<button type="button" class="pill'+(allday?" allday":"")+'" style="--c:'+esc(evColor(it.ev))+'" data-ev="'+esc(it.id)+'" data-d="'+key+'" title="'+esc(it.ev.title)+'">'+tt+esc(it.ev.title)+'</button>';
+      const allday=it.ev.kind!=="family_time"&&(it.ev.allDay||!sameDay(it.occ.start,it.occ.end));
+      const tt=allday||it.ev.allDay||it.ev.kind==="birthday"?"":'<b>'+esc(it.ev.start||"")+'</b>';
+      const ttl=evTitle(it.ev,it.occ);
+      html+='<button type="button" class="pill'+(allday?" allday":"")+evCls(it.ev)+'" style="--c:'+esc(evColor(it.ev))+'" data-ev="'+esc(it.id)+'" data-d="'+key+'" title="'+esc(ttl)+'">'+tt+esc(ttl)+'</button>';
     });
-    if(items.length>3)html+='<span class="more">+'+(items.length-3)+' weitere</span>';
+    if(items.length>3)html+='<span class="more">+'+(items.length-3)+'<span class="mw"> weitere</span></span>';
     html+='</div>';
   }
   v.innerHTML=html+'</div></div>';
@@ -415,8 +519,10 @@ function renderMonth(){
   });
 }
 function evRow(it,d){
-  return '<div class="ev" style="--c:'+esc(evColor(it.ev))+'" data-ev="'+esc(it.id)+'" data-d="'+ymd(d)+'" role="button" tabindex="0"><span class="time">'+esc(timeText(it.ev,it.occ,d))+'</span><span><b>'+esc(it.ev.title)+'</b><br><span class="who">'+esc(whoText(it.ev))+(it.ev.location?' · '+esc(it.ev.location):"")+'</span></span></div>';
+  const extra=it.ev.kind==="family_time"?"Familienzeit (vorgemerkt) · ":"";
+  return '<div class="ev'+evCls(it.ev)+'" style="--c:'+esc(evColor(it.ev))+'" data-ev="'+esc(it.id)+'" data-d="'+ymd(d)+'" role="button" tabindex="0"><span class="time">'+esc(timeText(it.ev,it.occ,d))+'</span><span><b>'+esc(evTitle(it.ev,it.occ))+'</b><br><span class="who">'+esc(extra+whoText(it.ev))+(it.ev.location?' · '+esc(it.ev.location):"")+'</span></span></div>';
 }
+function holRow(name){return '<div class="ev hol"><span class="time">Feiertag</span><span>'+esc(name)+'</span></div>';}
 function bindEvRows(root){
   root.querySelectorAll(".ev").forEach(r=>{
     const go=()=>openDetail(r.dataset.ev,parse(r.dataset.d));
@@ -428,11 +534,38 @@ function renderList(){
   const days=buildDays(from,to);const today=new Date();
   let html='<div class="agenda">';let any=false;
   for(let d=new Date(from);d<=to;d=addDays(d,1)){
-    const items=days[ymd(d)];if(!items)continue;any=true;
-    html+='<div class="day'+(sameDay(d,today)?" today":"")+'"><div class="dl">'+d.getDate()+'. '+MONTHS[d.getMonth()].slice(0,3)+'<small>'+DOWL[d.getDay()]+'</small></div><div>'+items.map(it=>evRow(it,d)).join("")+'</div></div>';
+    const items=days[ymd(d)]||[];const hol=holiday(d);if(!items.length&&!hol)continue;any=true;
+    html+=dayBlock(d,items,hol,today);
   }
   if(!any)html+='<p class="empty">Keine Termine im '+MONTHS[from.getMonth()]+'.</p>';
   v.innerHTML=html+'</div>';bindEvRows(v);
+}
+function dayBlock(d,items,hol,today,emptyText){
+  return '<div class="day'+(sameDay(d,today)?" today":"")+'"><div class="dl">'+(sameDay(d,today)?"Heute":d.getDate()+'. '+MONTHS[d.getMonth()].slice(0,3))+'<small>'+(sameDay(d,today)?fmtShort(d)+" · ":"")+DOWL[d.getDay()]+'</small></div><div>'+(hol?holRow(hol):"")+items.map(it=>evRow(it,d)).join("")+(!items.length&&!hol&&emptyText?'<div class="week-free">'+emptyText+'</div>':"")+'</div></div>';
+}
+function renderWeek(){
+  const v=$("view");const from=S.week;const to=addDays(from,6);const days=buildDays(from,to);const today=new Date();
+  let html='<div class="agenda">';
+  for(let d=new Date(from);d<=to;d=addDays(d,1))html+=dayBlock(d,days[ymd(d)]||[],holiday(d),today,"Nichts geplant");
+  v.innerHTML=html+'</div>';bindEvRows(v);
+}
+function renderYear(){
+  const v=$("view");const y=S.cursor.getFullYear();const days=buildDays(new Date(y,0,1),new Date(y,11,31));const today=new Date();
+  let h='<div class="year">';
+  for(let m=0;m<12;m++){
+    const first=new Date(y,m,1);const off=(first.getDay()+6)%7;const n=new Date(y,m+1,0).getDate();
+    h+='<div class="ym'+(today.getFullYear()===y&&today.getMonth()===m?" cur":"")+'"><h4><button type="button" data-m="'+m+'">'+MONTHS[m]+'</button></h4><div class="yg">'+DOW.map(x=>'<span class="h">'+x[0]+'</span>').join("")+'<span></span>'.repeat(off);
+    for(let d=1;d<=n;d++){
+      const dt=new Date(y,m,d);const k=ymd(dt);const it=days[k]||[];const hol=holiday(dt);
+      const cls=["yd"];if(it.length)cls.push("has");if(hol)cls.push("hol");if(sameDay(dt,today))cls.push("today");
+      const cols=[...new Set(it.map(x=>x.ev.kind==="birthday"?"#f2b134":evColor(x.ev)))].slice(0,3);
+      h+='<button type="button" class="'+cls.join(" ")+'" data-day="'+k+'" aria-label="'+esc(fmtLong(dt)+(hol?", "+hol:"")+", "+it.length+" Termine")+'" title="'+esc([hol].concat(it.map(x=>evTitle(x.ev,x.occ))).filter(Boolean).join(" · "))+'">'+d+'<span class="dots">'+cols.map(c=>'<i style="--c:'+esc(c)+'"></i>').join("")+'</span></button>';
+    }
+    h+='</div></div>';
+  }
+  v.innerHTML=h+'</div>';
+  v.querySelectorAll(".yd").forEach(b=>b.onclick=()=>openDay(parse(b.dataset.day)));
+  v.querySelectorAll(".ym h4 button").forEach(b=>b.onclick=()=>{S.cursor=new Date(y,+b.dataset.m,1);setView("month");});
 }
 
 /* ---------- Dialoge ---------- */
@@ -446,8 +579,8 @@ document.addEventListener("keydown",e=>{if(e.key==="Escape")document.querySelect
 
 function openDay(d){
   S.dayOpen=d;$("day-h").textContent=fmtLong(d);
-  const items=buildDays(d,d)[ymd(d)]||[];
-  $("day-list").innerHTML=items.length?items.map(it=>evRow(it,d)).join(""):'<p class="empty" style="padding:8px 0">Noch nichts geplant.</p>';
+  const items=buildDays(d,d)[ymd(d)]||[];const hol=holiday(d);
+  $("day-list").innerHTML=(hol?holRow(hol):"")+(items.length?items.map(it=>evRow(it,d)).join(""):'<p class="empty" style="padding:8px 0">Noch nichts geplant.</p>');
   bindEvRows($("day-list"));open("dlg-day");
 }
 $("day-add").onclick=()=>{close("dlg-day");openEditor(null,S.dayOpen);};
@@ -455,14 +588,18 @@ $("day-add").onclick=()=>{close("dlg-day");openEditor(null,S.dayOpen);};
 function openDetail(id,d){
   const ev=S.events[id];if(!ev)return;
   close("dlg-day");S.detailId=id;
-  $("dt-h").textContent=ev.title;
   const occ=occurrences(ev,d,d)[0]||{start:parse(ev.date),end:parse(ev.endDate)||parse(ev.date)};
-  const rep={weekly:"jede Woche",biweekly:"alle 2 Wochen",monthly:"jeden Monat",yearly:"jedes Jahr"}[ev.repeat];
-  const rows=[
-    ["Wann",fmtLong(occ.start)+(sameDay(occ.start,occ.end)?"":" bis "+fmtLong(occ.end))],
-    ["Uhrzeit",ev.allDay?"Ganztägig":(ev.start||"")+(ev.end?" – "+ev.end:"")+" Uhr"],
-    ["Wer",whoText(ev)]
-  ];
+  $("dt-h").textContent=ev.kind==="birthday"?"🎂 "+ev.title:ev.title;
+  const bd=ev.kind==="birthday";
+  const rep=bd?null:{weekly:"jede Woche",biweekly:"alle 2 Wochen",monthly:"jeden Monat",yearly:"jedes Jahr"}[ev.repeat];
+  const rows=[];
+  if(bd){const a=age(ev,occ);rows.push(["Geburtstag",fmtLong(occ.start)+(a?" · wird "+a:"")]);}
+  else{
+    if(ev.kind==="family_time")rows.push(["Art","Familienzeit (vorgemerkt)"]);
+    rows.push(["Wann",fmtLong(occ.start)+(sameDay(occ.start,occ.end)?"":" bis "+fmtLong(occ.end))]);
+    rows.push(["Uhrzeit",ev.allDay?"Ganztägig":(ev.start||"")+(ev.end?" – "+ev.end:"")+" Uhr"]);
+    rows.push(["Wer",whoText(ev)]);
+  }
   if(rep){const u=parse(ev.repeatUntil);rows.push(["Wiederholt",rep+(u?" bis "+fmtShort(u)+u.getFullYear():"")]);}
   if(ev.location)rows.push(["Wo",ev.location]);
   if(ev.note)rows.push(["Notiz",ev.note]);
@@ -485,13 +622,27 @@ function renderEvPeople(){
     box.appendChild(b);
   }
 }
-function syncAllDay(){$("ev-times").style.display=$("ev-allday").checked?"none":"";}
+let evKind="event";
+function setKind(k){
+  evKind=k;$("ev-kind").querySelectorAll("button").forEach(b=>b.setAttribute("aria-pressed",b.dataset.kind===k));
+  const bd=k==="birthday",ft=k==="family_time";
+  $("ev-allday-w").hidden=bd;$("ev-enddate-w").hidden=bd;$("ev-repeat-w").hidden=bd;
+  $("ev-title-l").textContent=bd?"Wessen Geburtstag?":ft?"Wofür vormerken?":"Was?";
+  $("ev-title").placeholder=bd?"z. B. Oma Helga":ft?"z. B. Familienzeit, Ausflug, Besuch bei Oma":"z. B. Zahnarzt, Elternabend, Oma besuchen";
+  $("ev-date-l").textContent=bd?"Datum (mit Geburtsjahr, falls bekannt)":"Von (Datum)";
+  $("ev-people-l").textContent=bd?"Wer hat Geburtstag? (optional)":ft?"Für wen vormerken?":"Wer ist dabei?";
+  const hint={birthday:"Erscheint jedes Jahr. Mit Geburtsjahr steht dabei, wie alt die Person wird.",family_time:"Vorgemerkte Familienzeit gilt nicht als belegt. „Zeit finden“ schlägt sie zuerst vor."}[k];
+  $("ev-kindhint").hidden=!hint;$("ev-kindhint").textContent=hint||"";
+  syncAllDay();
+}
+$("ev-kind").querySelectorAll("button").forEach(b=>b.onclick=()=>setKind(b.dataset.kind));
+function syncAllDay(){$("ev-times").hidden=$("ev-allday").checked||evKind==="birthday";}
 $("ev-allday").onchange=syncAllDay;
 $("ev-repeat").onchange=()=>{$("ev-until").disabled=$("ev-repeat").value==="none";};
 $("ev-date").onchange=()=>{const a=$("ev-date").value,b=$("ev-enddate").value;if(!b||b<a)$("ev-enddate").value=a;};
 $("ev-start").onchange=()=>{const s=$("ev-start").value;if(!s)return;const[h,m]=s.split(":").map(Number);const e=$("ev-end").value;if(!e||e<=s)$("ev-end").value=pad(Math.min(23,h+1))+":"+pad(m);};
 
-function openEditor(id,day){
+function openEditor(id,day,pre){
   S.editing=id;const ev=id?S.events[id]:null;$("ev-err").textContent="";
   $("ev-h").textContent=ev?"Termin bearbeiten":"Neuer Termin";
   const d=day?ymd(day):ymd(new Date());
@@ -508,7 +659,8 @@ function openEditor(id,day){
   $("ev-note").value=ev?ev.note:"";
   const mine=myPerson();
   evPeopleSel=new Set(ev?ev.people.filter(i=>S.people[i]):(mine?[mine[0]]:[]));
-  renderEvPeople();syncAllDay();
+  if(pre){if(pre.allDay)$("ev-allday").checked=true;if(pre.start)$("ev-start").value=pre.start;if(pre.end)$("ev-end").value=pre.end;if(pre.people)evPeopleSel=new Set(pre.people);}
+  renderEvPeople();setKind(ev?ev.kind:"event");
   $("ev-del").style.display=ev?"":"none";
   open("dlg-event");setTimeout(()=>$("ev-title").focus(),30);
 }
@@ -528,12 +680,13 @@ $("ev-form").addEventListener("submit",async e=>{
   const title=$("ev-title").value.trim();const date=$("ev-date").value;let endDate=$("ev-enddate").value||date;
   if(!title||!parse(date)){$("ev-err").textContent="Bitte Titel und Datum angeben.";return;}
   if(endDate<date)endDate=date;
-  const allDay=$("ev-allday").checked;
+  const bd=evKind==="birthday";if(bd)endDate=date;
+  const allDay=bd||$("ev-allday").checked;
   if(!allDay&&date===endDate&&$("ev-end").value&&$("ev-end").value<$("ev-start").value){$("ev-err").textContent="Das Ende liegt vor dem Beginn.";return;}
-  const rep=$("ev-repeat").value;
-  const row={family_id:S.family.id,title,date,end_date:endDate,all_day:allDay,
+  const rep=bd?"yearly":$("ev-repeat").value;
+  const row={family_id:S.family.id,kind:evKind,title,date,end_date:endDate,all_day:allDay,
     start_time:allDay||!$("ev-start").value?null:$("ev-start").value,end_time:allDay||!$("ev-end").value?null:$("ev-end").value,
-    people:[...evPeopleSel],repeat:rep,repeat_until:rep==="none"||!$("ev-until").value?null:$("ev-until").value,
+    people:[...evPeopleSel],repeat:rep,repeat_until:bd||rep==="none"||!$("ev-until").value?null:$("ev-until").value,
     location:$("ev-loc").value.trim()||null,note:$("ev-note").value.trim()||null};
   busy=true;$("ev-save").disabled=true;
   const q=S.editing?S.sb.from("events").update(row).eq("id",S.editing):S.sb.from("events").insert(row);
@@ -541,7 +694,7 @@ $("ev-form").addEventListener("submit",async e=>{
   busy=false;$("ev-save").disabled=false;
   if(error){$("ev-err").textContent=dbError(error);return;}
   close("dlg-event");await loadEvents();
-  const d=parse(date);if(d.getMonth()!==S.cursor.getMonth()||d.getFullYear()!==S.cursor.getFullYear())S.cursor=firstOfMonth(d);
+  const d=parse(date);if(!bd&&(d.getMonth()!==S.cursor.getMonth()||d.getFullYear()!==S.cursor.getFullYear()))S.cursor=firstOfMonth(d);
   render();
 });
 let delArmed=false;
@@ -563,43 +716,58 @@ function colorPicker(box,initial){
 }
 function nextColor(){const used=new Set(Object.values(S.people).map(p=>p.color));return COLORS.find(c=>!used.has(c))||COLORS[Object.keys(S.people).length%COLORS.length];}
 
-/* ---------- Familie & Einladen ---------- */
+/* ---------- Familie (nur der Admin verwaltet) ---------- */
 function inviteUrl(){return location.origin+location.pathname+"?einladung="+encodeURIComponent(S.family.invite_code);}
+function adminUid(){const m=S.members.find(m=>m.role==="owner");return m?m.user_id:null;}
+function adminName(){const u=adminUid();const p=u&&Object.values(S.people).find(p=>p.user_id===u);return p?p.name:null;}
 let famColor=()=>COLORS[0];
 async function openFamily(){
   $("fam-err").textContent="";$("inv-msg").textContent="";
-  $("inv-link").textContent=inviteUrl();$("inv-code").textContent=S.family.invite_code;
-  $("inv-share").hidden=!navigator.share;
-  const owner=S.role==="owner";
-  $("inv-rotate").hidden=!owner;$("fam-owner").hidden=!owner;$("fam-leave").hidden=owner;
-  $("fam-rename").value=S.family.name;
-  renderFamList();famColor=colorPicker($("fam-colors"),nextColor());
-  const sw=$("fam-switch");sw.innerHTML="";
-  $("fam-switch-wrap").hidden=S.families.length<2;
-  S.families.forEach(f=>{const o=document.createElement("option");o.value=f.id;o.textContent=f.name;o.selected=f.id===S.family.id;sw.appendChild(o);});
-  $("fam-me").textContent=S.session?.user?.email?("Angemeldet als "+S.session.user.email):"";
-  open("dlg-family");
+  const a=isAdmin();
+  $("fam-invite").hidden=!a;$("fam-add").hidden=!a;$("fam-owner").hidden=!a;$("fam-leave").hidden=a;
+  if(a){$("inv-link").textContent=inviteUrl();$("inv-code").textContent=S.family.invite_code;$("inv-share").hidden=!navigator.share;
+    $("fam-rename").value=S.family.name;famColor=colorPicker($("fam-colors"),nextColor());}
+  await loadMembers();
+  const an=adminName();
+  $("fam-adminhint").hidden=a;
+  $("fam-adminhint").textContent="Die Familie verwaltet "+(an||"der Admin")+". Wenn jemand dazukommen oder entfernt werden soll, sag "+(an||"dem Admin")+" Bescheid.";
+  renderFamList();open("dlg-family");
+}
+function armButton(btn,label,armedLabel,fn){
+  let armed=false;
+  btn.onclick=async()=>{
+    if(!armed){armed=true;btn.textContent=armedLabel;setTimeout(()=>{armed=false;btn.textContent=label;},3000);return;}
+    armed=false;btn.textContent=label;await fn();
+  };
 }
 function renderFamList(){
   const box=$("fam-list");box.innerHTML="";
-  const list=personList();
-  if(!list.length){box.innerHTML='<p class="hint" style="margin:0">Noch niemand angelegt.</p>';return;}
-  for(const [id,p] of list){
+  const list=personList();const a=isAdmin();const au=adminUid();
+  const rows=list.map(([id,p])=>({id,p,uid:p.user_id||null}));
+  for(const m of S.members)if(!list.some(([,p])=>p.user_id===m.user_id))rows.push({id:null,p:null,uid:m.user_id});
+  if(!rows.length){box.innerHTML='<p class="hint" style="margin:0">Noch niemand angelegt.</p>';return;}
+  for(const r of rows){
     const row=document.createElement("div");row.className="fam-row";
-    const tag=p.user_id?(p.user_id===S.uid?"du":"mit Konto"):"ohne Konto";
-    row.innerHTML='<span class="sw" style="--c:'+esc(p.color)+';background:'+esc(p.color)+'"></span><span>'+esc(p.name)+' <small>· '+tag+'</small></span>';
-    const del=document.createElement("button");del.type="button";del.className="btn danger";del.textContent="Entfernen";
-    let armed=false;
-    del.onclick=async()=>{
-      if(!armed){armed=true;del.textContent="Sicher?";setTimeout(()=>{armed=false;del.textContent="Entfernen";},3000);return;}
-      const {error}=await S.sb.from("people").delete().eq("id",id);
-      if(error){$("fam-err").textContent=dbError(error);return;}
-      await loadPeople();renderFamList();render();
-    };
-    row.appendChild(del);box.appendChild(row);
+    const isMember=r.uid&&S.members.some(m=>m.user_id===r.uid);
+    let tag=r.uid?(r.uid===S.uid?"du":(isMember?"mit Konto":"Konto nicht mehr im Kalender")):"ohne Konto";
+    const badge=r.uid&&r.uid===au?' <span class="tag admin">Admin</span>':"";
+    const color=r.p?r.p.color:"#7d8b95";
+    row.innerHTML='<span class="sw" style="--c:'+esc(color)+';background:'+esc(color)+'"></span><span>'+esc(r.p?r.p.name:"Konto ohne Namen")+badge+' <small>· '+tag+'</small></span>';
+    if(a&&r.uid!==S.uid){
+      const del=document.createElement("button");del.type="button";del.className="btn danger";del.textContent="Entfernen";
+      if(isMember)del.title="Entfernt die Person und ihren Zugang zum Kalender";
+      armButton(del,"Entfernen","Sicher?",async()=>{
+        if(isMember){const {error}=await S.sb.from("family_members").delete().eq("family_id",S.family.id).eq("user_id",r.uid);
+          if(error){$("fam-err").textContent=dbError(error);return;}}
+        if(r.id){const {error}=await S.sb.from("people").delete().eq("id",r.id);if(error){$("fam-err").textContent=dbError(error);return;}}
+        await Promise.all([loadPeople(),loadMembers()]);renderFamList();render();
+      });
+      row.appendChild(del);
+    }else row.appendChild(document.createElement("span"));
+    box.appendChild(row);
   }
 }
-$("btn-family").onclick=openFamily;$("btn-family2").onclick=openFamily;
+$("btn-family2").onclick=openFamily;
 $("fam-add").addEventListener("submit",async e=>{
   e.preventDefault();const name=$("fam-name").value.trim();if(!name)return;
   const {error}=await S.sb.from("people").insert({family_id:S.family.id,name,color:famColor()});
@@ -626,16 +794,113 @@ $("fam-rename-save").onclick=async()=>{
   S.family.name=name;const f=S.families.find(x=>x.id===S.family.id);if(f)f.name=name;render();
   $("fam-err").textContent="";
 };
-$("fam-switch").onchange=async()=>{LS.set("fk-family",$("fam-switch").value);close("dlg-family");await route();};
-let leaveArmed=false;
-$("fam-leave").onclick=async()=>{
-  if(!leaveArmed){leaveArmed=true;$("fam-leave").textContent="Wirklich verlassen?";setTimeout(()=>{leaveArmed=false;$("fam-leave").textContent="Kalender verlassen";},3000);return;}
+armButton($("fam-leave"),"Kalender verlassen","Wirklich verlassen?",async()=>{
   const {error}=await S.sb.from("family_members").delete().eq("family_id",S.family.id).eq("user_id",S.uid);
   if(error){$("fam-err").textContent=dbError(error);return;}
   LS.set("fk-family",null);close("dlg-family");await route();
-};
-async function logout(){await S.sb.auth.signOut();close("dlg-family");}
-$("fam-logout").onclick=logout;$("onb-logout").onclick=logout;
+});
+async function logout(){await S.sb.auth.signOut();close("dlg-settings");}
+$("onb-logout").onclick=logout;
+
+/* ---------- Einstellungen ---------- */
+function openSettings(){
+  $("set-size").querySelectorAll("button").forEach(b=>b.setAttribute("aria-pressed",b.dataset.size===SET.size));
+  $("set-hol").checked=SET.hol;$("set-region").value=SET.region;$("set-region-w").hidden=!SET.hol;
+  const sw=$("set-switch");sw.innerHTML="";$("set-switch-wrap").hidden=S.families.length<2;
+  S.families.forEach(f=>{const o=document.createElement("option");o.value=f.id;o.textContent=f.name;o.selected=f.id===S.family.id;sw.appendChild(o);});
+  $("set-me").textContent=S.session?.user?.email?("Angemeldet als "+S.session.user.email+(isAdmin()?" · Admin":"")):"";
+  open("dlg-settings");
+}
+$("btn-settings").onclick=openSettings;
+$("set-size").querySelectorAll("button").forEach(b=>b.onclick=()=>{SET.size=b.dataset.size;LS.set("fk-size",SET.size);applySize();
+  $("set-size").querySelectorAll("button").forEach(x=>x.setAttribute("aria-pressed",x===b));});
+$("set-hol").onchange=()=>{SET.hol=$("set-hol").checked;LS.set("fk-hol",SET.hol?"1":"0");$("set-region-w").hidden=!SET.hol;render();};
+$("set-region").onchange=()=>{SET.region=$("set-region").value;LS.set("fk-region",SET.region);render();};
+$("set-switch").onchange=async()=>{LS.set("fk-family",$("set-switch").value);close("dlg-settings");await route();};
+$("set-logout").onclick=logout;
+
+/* ---------- Monat/Jahr schnell wählen ---------- */
+let pickYear=0;
+function renderPick(){
+  $("pick-year").textContent=pickYear;const box=$("pick-months");box.innerHTML="";const now=new Date();
+  MONTHS.forEach((m,i)=>{const b=document.createElement("button");b.type="button";b.textContent=m.slice(0,3);b.setAttribute("aria-label",m+" "+pickYear);
+    b.setAttribute("aria-pressed",S.view!=="year"&&S.view!=="week"&&pickYear===S.cursor.getFullYear()&&i===S.cursor.getMonth());
+    if(pickYear===now.getFullYear()&&i===now.getMonth())b.className="now";
+    b.onclick=()=>{S.cursor=new Date(pickYear,i,1);close("dlg-pick");if(S.view==="year"||S.view==="week")S.view="month";render();};
+    box.appendChild(b);});
+}
+$("monthTitle").onclick=()=>{pickYear=(S.view==="week"?S.week:S.cursor).getFullYear();renderPick();open("dlg-pick");};
+$("pick-prev").onclick=()=>{pickYear--;renderPick();};
+$("pick-next").onclick=()=>{pickYear++;renderPick();};
+$("pick-yearview").onclick=()=>{S.cursor=new Date(pickYear,S.cursor.getMonth(),1);close("dlg-pick");setView("year");};
+
+/* ---------- Gemeinsame Zeit finden ---------- */
+let findSel=new Set();
+function chipsInto(box,set){
+  box.innerHTML="";const list=personList();
+  if(!list.length){box.innerHTML='<span class="hint" style="margin:0">Noch keine Personen angelegt.</span>';return;}
+  for(const [id,p] of list){
+    const b=document.createElement("button");b.type="button";b.className="chip";b.style.setProperty("--c",p.color||COLORS[0]);
+    b.textContent=p.name;b.setAttribute("aria-pressed",set.has(id));
+    b.onclick=()=>{set.has(id)?set.delete(id):set.add(id);b.setAttribute("aria-pressed",set.has(id));};
+    box.appendChild(b);
+  }
+}
+function openFind(){
+  findSel=new Set(Object.keys(S.people));chipsInto($("find-people"),findSel);
+  $("find-from").value=ymd(new Date());$("find-to").value=ymd(addDays(new Date(),30));
+  $("find-out").innerHTML="";open("dlg-find");
+}
+$("btn-find").onclick=openFind;
+function findSlots(from,to,dur,ws,we,weOnly,sel){
+  const days=buildDays(from,to,true);const now=new Date();const res=[];
+  const relevant=ev=>{const ids=(ev.people||[]).filter(i=>S.people[i]);return !ids.length||ids.some(i=>sel.has(i));};
+  for(let d=new Date(from);d<=to;d=addDays(d,1)){
+    const dow=d.getDay();if(weOnly&&!(dow===0||dow===6||holiday(d)))continue;
+    let lo=ws;const hi=we;
+    if(sameDay(d,now)){if(dur===null)continue;lo=Math.max(lo,Math.ceil((now.getHours()*60+now.getMinutes())/30)*30);}
+    if(d<today0())continue;
+    const busy=[],pref=[];
+    for(const it of days[ymd(d)]||[]){
+      const ev=it.ev;if(ev.kind==="birthday"||!relevant(ev))continue;
+      let a,b;const multi=!sameDay(it.occ.start,it.occ.end);
+      if(ev.allDay){a=0;b=1440;}
+      else if(multi){a=sameDay(d,it.occ.start)?(toMin(ev.start)??0):0;b=sameDay(d,it.occ.end)?(toMin(ev.end)??1440):1440;}
+      else{a=toMin(ev.start)??0;b=toMin(ev.end)??a+60;if(b<=a)b=a+60;}
+      (ev.kind==="family_time"?pref:busy).push([a,b]);
+    }
+    busy.sort((x,y)=>x[0]-y[0]);
+    const gaps=[];let cur=lo;
+    for(const [a,b] of busy){if(b<=cur)continue;if(a>=hi)break;if(a>cur)gaps.push([cur,Math.min(a,hi)]);cur=Math.max(cur,b);if(cur>=hi)break;}
+    if(cur<hi)gaps.push([cur,hi]);
+    if(dur===null){if(gaps.length===1&&gaps[0][0]===ws&&gaps[0][1]===we)res.push({d:new Date(d),allDay:true,pref:pref.length>0});continue;}
+    let pick=null;
+    for(const [pa,pb] of pref)for(const [ga,gb] of gaps){const a=Math.max(ga,pa),b=Math.min(gb,pb);if(b-a>=dur&&(!pick||a<pick.s))pick={s:a,e:a+dur,pref:true};}
+    if(!pick)for(const [ga,gb] of gaps)if(gb-ga>=dur){pick={s:ga,e:ga+dur,pref:false};break;}
+    if(pick)res.push({d:new Date(d),...pick});
+  }
+  return res.filter(r=>r.pref).concat(res.filter(r=>!r.pref)).slice(0,3);
+}
+$("find-form").addEventListener("submit",e=>{
+  e.preventDefault();const out=$("find-out");
+  const from=parse($("find-from").value),to=parse($("find-to").value);
+  if(!from||!to||to<from){out.innerHTML='<p class="err">Bitte einen gültigen Zeitraum wählen.</p>';return;}
+  if(dayDiff(from,to)>366){out.innerHTML='<p class="err">Bitte höchstens ein Jahr auf einmal durchsuchen.</p>';return;}
+  if(!findSel.size){out.innerHTML='<p class="err">Bitte mindestens eine Person auswählen.</p>';return;}
+  const dv=$("find-dur").value;const dur=dv==="day"?null:+dv;const [ws,we]=$("find-win").value.split("-").map(Number);
+  if(dur!==null&&dur>we-ws){out.innerHTML='<p class="err">Die Dauer ist länger als die gewählte Tageszeit.</p>';return;}
+  const res=findSlots(from,to,dur,ws,we,$("find-we").checked,findSel);
+  if(!res.length){out.innerHTML='<p class="hint" style="margin:0">Kein freier Zeitraum gefunden. Versuch einen längeren Zeitraum, eine kürzere Dauer oder eine andere Tageszeit.</p>';return;}
+  out.innerHTML="";
+  res.forEach(r=>{
+    const div=document.createElement("div");div.className="slot"+(r.pref?" pref":"");
+    const when=r.allDay?"Ganzer Tag":fromMin(r.s)+"–"+fromMin(r.e)+" Uhr";
+    div.innerHTML='<span class="w"><b>'+esc(fmtDay(r.d))+'</b><small>'+esc(when+(r.pref?" · in vorgemerkter Familienzeit":""))+'</small></span>';
+    const b=document.createElement("button");b.type="button";b.className="btn primary";b.textContent="Eintragen";
+    b.onclick=()=>{close("dlg-find");openEditor(null,r.d,r.allDay?{allDay:true,people:[...findSel]}:{start:fromMin(r.s),end:fromMin(r.e),people:[...findSel]});};
+    div.appendChild(b);out.appendChild(div);
+  });
+});
 
 /* ---------- Wer bist du ---------- */
 let whoColor=()=>COLORS[0];let whoClaim=null;
@@ -667,12 +932,18 @@ $("who-form").addEventListener("submit",async e=>{
 });
 
 /* ---------- Navigation ---------- */
-$("prev").onclick=()=>{S.cursor=new Date(S.cursor.getFullYear(),S.cursor.getMonth()-1,1);render();};
-$("next").onclick=()=>{S.cursor=new Date(S.cursor.getFullYear(),S.cursor.getMonth()+1,1);render();};
-$("todayBtn").onclick=()=>{S.cursor=firstOfMonth(new Date());render();};
-$("v-month").onclick=()=>{S.view="month";LS.set("fk-view","month");render();};
-$("v-list").onclick=()=>{S.view="list";LS.set("fk-view","list");render();};
-{const v=LS.get("fk-view");if(v==="list"||v==="month")S.view=v;else if(window.matchMedia&&matchMedia("(max-width:600px)").matches)S.view="list";}
+function shift(dir){
+  if(S.view==="year")S.cursor=new Date(S.cursor.getFullYear()+dir,S.cursor.getMonth(),1);
+  else if(S.view==="week")S.week=addDays(S.week,7*dir);
+  else S.cursor=new Date(S.cursor.getFullYear(),S.cursor.getMonth()+dir,1);
+  render();
+}
+function setView(v){S.view=v;LS.set("fk-view",v);render();}
+$("prev").onclick=()=>shift(-1);
+$("next").onclick=()=>shift(1);
+$("todayBtn").onclick=()=>{S.cursor=firstOfMonth(new Date());S.week=today0();render();};
+["month","year","list","week"].forEach(v=>$("v-"+v).onclick=()=>{if(v==="week")S.week=today0();setView(v);});
+{const v=LS.get("fk-view");if(["list","month","year","week"].includes(v))S.view=v;else if(window.matchMedia&&matchMedia("(max-width:600px)").matches)S.view="list";}
 
 /* ---------- Daten laden ---------- */
 async function loadPeople(){
@@ -685,8 +956,16 @@ async function loadEvents(){
   if(error){setStatus(dbError(error));return;}
   const o={};data.forEach(r=>o[r.id]=rowToEv(r));S.events=o;
 }
+async function loadMembers(){
+  const {data,error}=await S.sb.from("family_members").select("user_id,role").eq("family_id",S.family.id);
+  if(error)return;S.members=data||[];
+  const me=S.members.find(m=>m.user_id===S.uid);if(me)S.role=me.role;
+}
 let reloadTimer=null;
-function scheduleReload(){clearTimeout(reloadTimer);reloadTimer=setTimeout(async()=>{await Promise.all([loadPeople(),loadEvents()]);render();if($("dlg-family").classList.contains("open"))renderFamList();},300);}
+function scheduleReload(){clearTimeout(reloadTimer);reloadTimer=setTimeout(async()=>{
+  await Promise.all([loadPeople(),loadEvents(),loadMembers()]);
+  if(S.family&&!S.members.some(m=>m.user_id===S.uid)){LS.set("fk-family",null);await route();return;}
+  render();if($("dlg-family").classList.contains("open"))renderFamList();},300);}
 function subscribe(){
   if(S.channel){S.sb.removeChannel(S.channel);S.channel=null;}
   const f="family_id=eq."+S.family.id;
@@ -725,7 +1004,7 @@ async function route(){
   S.family={id:fam.id,name:fam.name,invite_code:fam.invite_code};S.role=fam.role;LS.set("fk-family",fam.id);
   S.whoAsked=false;S.hidden.clear();setStatus("Termine werden geladen …");
   show("v-cal");
-  await Promise.all([loadPeople(),loadEvents()]);
+  await Promise.all([loadPeople(),loadEvents(),loadMembers()]);
   setStatus("");render();subscribe();maybeAskWho();
 }
 
@@ -801,7 +1080,7 @@ $("onb-join").addEventListener("submit",async e=>{
     if(event==="PASSWORD_RECOVERY")S.recovering=true;
     const changed=(session?.user?.id||null)!==(S.session?.user?.id||null);
     S.session=session;
-    if(event==="SIGNED_OUT"){S.family=null;S.people={};S.events={};if(S.channel){S.sb.removeChannel(S.channel);S.channel=null;}}
+    if(event==="SIGNED_OUT"){S.family=null;S.people={};S.events={};S.members=[];if(S.channel){S.sb.removeChannel(S.channel);S.channel=null;}}
     if(first||changed||event==="PASSWORD_RECOVERY"){first=false;setTimeout(route,0);}
   });
 })();

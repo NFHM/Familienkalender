@@ -1,6 +1,6 @@
 // Service Worker: macht die App installierbar und lädt die Oberfläche auch bei schwachem Netz.
 // Termine kommen immer live aus Supabase und werden hier nicht zwischengespeichert.
-const CACHE = "familienkalender-v1";
+const CACHE = "familienkalender-v2";
 const SHELL = ["./", "./index.html", "./manifest.webmanifest", "./icon.svg", "./icon-192.png", "./icon-512.png"];
 
 self.addEventListener("install", e => {

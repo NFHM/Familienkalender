@@ -45,6 +45,7 @@ create table public.events (
   repeat_until date,
   location     text check (char_length(location) <= 160),
   note         text check (char_length(note) <= 2000),
+  kind         text not null default 'event' check (kind in ('event','birthday','family_time')),
   created_by   uuid default auth.uid() references auth.users(id) on delete set null,
   created_at   timestamptz not null default now(),
   updated_at   timestamptz not null default now()
@@ -142,9 +143,13 @@ create policy "members: austreten oder entfernen" on public.family_members
     (private.is_family_owner(family_id) and user_id <> (select auth.uid())));
 
 create policy "people: lesen" on public.people for select to authenticated using (private.is_family_member(family_id));
-create policy "people: anlegen" on public.people for insert to authenticated with check (private.is_family_member(family_id));
-create policy "people: ändern" on public.people for update to authenticated using (private.is_family_member(family_id)) with check (private.is_family_member(family_id));
-create policy "people: löschen" on public.people for delete to authenticated using (private.is_family_member(family_id));
+-- Personen verwaltet nur der Admin (owner). Mitglieder legen nur sich selbst an bzw. übernehmen einen freien Eintrag.
+create policy "people: anlegen" on public.people for insert to authenticated
+  with check (private.is_family_owner(family_id) or (private.is_family_member(family_id) and user_id = (select auth.uid())));
+create policy "people: ändern" on public.people for update to authenticated
+  using (private.is_family_owner(family_id) or (private.is_family_member(family_id) and (user_id is null or user_id = (select auth.uid()))))
+  with check (private.is_family_owner(family_id) or (private.is_family_member(family_id) and user_id = (select auth.uid())));
+create policy "people: löschen" on public.people for delete to authenticated using (private.is_family_owner(family_id));
 
 create policy "events: lesen" on public.events for select to authenticated using (private.is_family_member(family_id));
 create policy "events: anlegen" on public.events for insert to authenticated with check (private.is_family_member(family_id));

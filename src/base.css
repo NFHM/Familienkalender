@@ -22,6 +22,9 @@
 }
 *{box-sizing:border-box}
 html,body{height:100%;margin:0}
+html{touch-action:manipulation;-webkit-text-size-adjust:100%}
+html[data-size="l"] body{zoom:1.12}
+html[data-size="xl"] body{zoom:1.25}
 body{background:var(--bg);color:var(--ink);font-family:var(--body);font-size:15px;line-height:1.45}
 button,input,select,textarea{font:inherit;color:inherit}
 button{cursor:pointer}
@@ -30,7 +33,9 @@ button{cursor:pointer}
 header{display:flex;flex-wrap:wrap;align-items:center;gap:12px}
 h1{font-family:var(--display);font-size:22px;margin:0;letter-spacing:-.01em;display:flex;align-items:center;gap:8px}
 h1 .dot{width:12px;height:12px;border-radius:3px;background:var(--sun);display:inline-block}
-.month-title{font-family:var(--display);font-size:26px;font-weight:700;margin:0;min-width:200px;text-wrap:balance}
+.month-title{font-family:var(--display);font-size:26px;font-weight:700;margin:0;min-width:200px;text-wrap:balance;border:0;background:none;padding:2px 6px;border-radius:8px;text-align:left;display:inline-flex;align-items:center;gap:6px}
+.month-title:hover{background:var(--today)}
+.month-title .caret{font-size:14px;color:var(--muted)}
 .spacer{flex:1}
 .btn{border:1px solid var(--line);background:var(--surface);border-radius:8px;padding:7px 12px;font-weight:600;display:inline-flex;align-items:center;gap:6px}
 .btn:hover{border-color:var(--accent)}
@@ -80,6 +85,46 @@ aside{display:flex;flex-direction:column;gap:16px}
 .pill b{font-weight:700;font-variant-numeric:tabular-nums;margin-right:3px}
 .pill.allday{background:var(--c);color:#fff;border-left-color:var(--c)}
 .more{font-size:11.5px;color:var(--muted);font-weight:600;padding-left:4px}
+.pill.bday{background:color-mix(in srgb,var(--sun) 28%,var(--surface));border-left-color:var(--sun);color:var(--ink)}
+.pill.ftime{background:transparent;border:1.5px dashed var(--c);border-left-width:3px;border-left-style:solid}
+.hol{font-size:11px;font-weight:600;color:var(--danger);white-space:nowrap;overflow:hidden;text-overflow:ellipsis;line-height:1.2}
+.cell.holiday .num{color:var(--danger)}
+.cell.today.holiday .num{color:var(--accent-ink)}
+.tag{display:inline-block;font-size:11px;font-weight:700;padding:1px 7px;border-radius:999px;background:var(--today);color:var(--muted);vertical-align:middle}
+.tag.admin{background:var(--sun);color:#3a2a00}
+/* Jahresansicht */
+.year{display:grid;grid-template-columns:repeat(auto-fill,minmax(210px,1fr));gap:12px}
+.ym{background:var(--surface);border:1px solid var(--line);border-radius:var(--radius);padding:10px}
+.ym h4{margin:0 0 6px;font-family:var(--display);font-size:15px}
+.ym h4 button{border:0;background:none;padding:0;font:inherit;color:inherit}
+.ym h4 button:hover{color:var(--accent)}
+.ym.cur h4{color:var(--accent)}
+.yg{display:grid;grid-template-columns:repeat(7,1fr);gap:2px;text-align:center;font-size:11.5px;font-variant-numeric:tabular-nums}
+.yg .h{color:var(--muted);font-weight:700;font-size:10px}
+.yd{border:0;background:none;padding:0;aspect-ratio:1;border-radius:6px;display:flex;flex-direction:column;align-items:center;justify-content:center;gap:1px;font-size:11.5px;line-height:1}
+.yd:hover{background:var(--today)}
+.yd.has{background:color-mix(in srgb,var(--accent) 12%,transparent);font-weight:700}
+.yd.hol{color:var(--danger);font-weight:700}
+.yd.today{background:var(--accent);color:var(--accent-ink)}
+.yd .dots{display:flex;gap:1px;height:4px}
+.yd .dots i{width:4px;height:4px;border-radius:50%;background:var(--c)}
+/* Auswahl Monat/Jahr */
+.pick-y{display:flex;align-items:center;justify-content:space-between;gap:8px}
+.pick-y b{font-family:var(--display);font-size:22px}
+.pick-m{display:grid;grid-template-columns:repeat(3,1fr);gap:6px}
+.pick-m button{border:1px solid var(--line);background:var(--bg);border-radius:8px;padding:10px 4px;font-weight:600}
+.pick-m button[aria-pressed="true"]{background:var(--accent);color:var(--accent-ink);border-color:var(--accent)}
+.pick-m button.now{border-color:var(--accent)}
+/* Terminsuche */
+.slots{display:flex;flex-direction:column;gap:8px}
+.slot{display:flex;align-items:center;gap:10px;padding:10px 12px;border:1px solid var(--line);border-radius:10px;background:var(--bg)}
+.slot .w{flex:1}
+.slot .w small{display:block;color:var(--muted)}
+.slot.pref{border-color:var(--accent);background:var(--today)}
+.week-free{color:var(--muted);font-size:13.5px;padding:6px 8px}
+.ev.bday{border-left-color:var(--sun);background:color-mix(in srgb,var(--sun) 16%,transparent)}
+.ev.ftime{background:transparent;outline:1.5px dashed color-mix(in srgb,var(--c) 70%,transparent);outline-offset:-1.5px}
+.ev.hol{border-left-color:var(--danger);background:transparent;cursor:default;color:var(--danger);font-weight:600}
 
 /* Liste */
 .agenda{background:var(--surface);border:1px solid var(--line);border-radius:var(--radius);padding:6px 16px 16px}
@@ -130,7 +175,15 @@ aside{display:flex;flex-direction:column;gap:16px}
   .grid{grid-auto-rows:minmax(64px,1fr)}
   .pill{font-size:0;padding:0;height:6px;border-radius:3px;background:var(--c);border:0}
   .pill b{display:none}
-  .more{font-size:10px}
+  .pill.bday{background:var(--sun)}
+  .pill.ftime{background:transparent;border:1.5px dashed var(--c);height:6px}
+  .hol{display:none}
+  .more{font-size:10px;padding-left:0}
+  .more .mw{display:none}
+  .field input,.field select,.field textarea{font-size:16px}
+  header .btn,.seg button{padding:7px 10px}
+  .year{grid-template-columns:repeat(2,1fr);gap:8px}
+  .ym{padding:8px}
   .month-title{font-size:21px;min-width:0}
   .agenda .day{grid-template-columns:1fr;gap:6px}
 }

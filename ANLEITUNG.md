@@ -33,7 +33,7 @@ Warum Schritt 2? Supabase verschickt ohne eigenen E-Mail-Dienst nur Mails an Mit
 
 1. Die Adresse öffnen → **Konto anlegen** → einen Namen für den Kalender vergeben.
 2. Bei „Wer bist du?“ deinen Namen eintragen.
-3. **Familie & Einladen** → **Link teilen** oder **Link kopieren** → per WhatsApp an die Familie schicken.
+3. Unten bei **Familie → Verwalten** → **Link teilen** oder **Link kopieren** → per WhatsApp an die Familie schicken.
 4. Wer den Link öffnet, legt ein Konto an und ist sofort im Kalender. Kinder ohne eigenes Handy legst du unter „Person hinzufügen“ an.
 
 **Aufs Handy legen:** iPhone: Seite in Safari öffnen → Teilen → *Zum Home-Bildschirm*. Android: Chrome → Menü ⋮ → *App installieren*.
@@ -41,7 +41,8 @@ Warum Schritt 2? Supabase verschickt ohne eigenen E-Mail-Dienst nur Mails an Mit
 ## Gut zu wissen
 
 - **Passwort vergessen** funktioniert erst, wenn ein E-Mail-Dienst eingerichtet ist (siehe unten). Bis dahin kannst du im Supabase-Dashboard unter *Authentication → Users* ein Konto löschen, dann legt die Person es neu an.
-- **Einladungslink zurückziehen:** Unter „Familie & Einladen“ auf *Neuen Code erzeugen*. Der alte Link funktioniert danach nicht mehr.
+- **Admin:** Wer den Kalender angelegt hat, ist Admin. Nur der Admin lädt ein, fügt Personen hinzu, entfernt sie und benennt den Kalender um. Alle können Termine eintragen und ändern.
+- **Einladungslink zurückziehen:** Unter „Familie → Verwalten“ auf *Neuen Code erzeugen*. Der alte Link funktioniert danach nicht mehr.
 - **Kosten:** Der kostenlose Supabase-Plan reicht für eine Familie. Projekte im Free-Plan werden nach 7 Tagen ohne jede Nutzung pausiert. Bei regelmäßiger Nutzung passiert das nicht, und ein pausiertes Projekt lässt sich im Dashboard mit einem Klick wieder starten.
 
 ## Optional: E-Mails verschicken (Passwort zurücksetzen, Bestätigung)
